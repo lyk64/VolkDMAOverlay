@@ -1,8 +1,11 @@
 #include "include/VolkDMAOverlay/dx11.hh"
+#include <dxgi1_5.h>
 
 using namespace Microsoft::WRL;
 
 bool DX11::init(HWND hwnd) {
+	tearing_supported = check_tearing_support();
+
 	DXGI_SWAP_CHAIN_DESC sd{
 		.BufferDesc{
 			.Format = DXGI_FORMAT_R8G8B8A8_UNORM
@@ -15,7 +18,7 @@ bool DX11::init(HWND hwnd) {
 		.OutputWindow = hwnd,
 		.Windowed = TRUE,
 		.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD,
-		.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING
+		.Flags = tearing_supported ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u
 	};
 
 	UINT flags{};
@@ -57,7 +60,7 @@ void DX11::cleanup() {
 
 bool DX11::resize(UINT width, UINT height) {
 	render_target_view.Reset();
-	if (FAILED(swap_chain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING)))
+	if (FAILED(swap_chain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, tearing_supported ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u)))
 		return false;
 	return create_render_target();
 }
@@ -69,7 +72,19 @@ void DX11::clear_and_set_target() {
 }
 
 void DX11::present(bool vsync) {
-	swap_chain->Present(vsync, vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING);
+	swap_chain->Present(vsync, !vsync && tearing_supported ? DXGI_PRESENT_ALLOW_TEARING : 0u);
+}
+
+bool DX11::check_tearing_support() {
+	ComPtr<IDXGIFactory5> factory;
+	if (FAILED(CreateDXGIFactory1(IID_PPV_ARGS(&factory))))
+		return false;
+
+	BOOL allowed{};
+	if (FAILED(factory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowed, sizeof(allowed))))
+		return false;
+
+	return allowed;
 }
 
 bool DX11::create_render_target() {

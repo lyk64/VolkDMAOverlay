@@ -19,5 +19,7 @@ struct DX11 {
 	void present(bool vsync);
 
 private:
+	bool tearing_supported{};
+	bool check_tearing_support();
 	bool create_render_target();
 };
