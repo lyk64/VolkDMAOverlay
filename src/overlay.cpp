@@ -1,8 +1,11 @@
 #include "include/VolkDMAOverlay/overlay.hh"
+#include <VolkLog/log.hh>
 #include <imgui.h>
 #include <imgui_impl_win32.h>
 #include <imgui_impl_dx11.h>
 #include <filesystem>
+
+static constexpr Volk::Log::Logger logger{ "OVERLAY" };
 
 static void apply_theme() {
     ImGuiStyle& style = ImGui::GetStyle();
@@ -57,10 +60,13 @@ bool Overlay::init(const wchar_t* title, Win32::ResizeCallback on_resize) {
     height = GetSystemMetrics(SM_CYSCREEN);
     window.on_resize = on_resize;
 
-    if (!window.init(title, width, height, dx11))
+    if (!window.init(title, width, height, dx11)) {
+        logger.error("Win32 init failed");
         return false;
+    }
 
     if (!dx11.init(window.hwnd)) {
+        logger.error("DX11 init failed");
         dx11.cleanup();
         window.cleanup();
         return false;
@@ -80,6 +86,7 @@ bool Overlay::init(const wchar_t* title, Win32::ResizeCallback on_resize) {
     if (on_resize)
         on_resize(width, height);
 
+    logger.info("Initialized ({}x{})", width, height);
     return true;
 }
 
@@ -98,6 +105,7 @@ void Overlay::end_frame(bool vsync) {
 
 void Overlay::shutdown() {
     if (!initialized) return;
+    logger.info("Shutting down");
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
@@ -114,16 +122,24 @@ void Overlay::load_fonts() {
     constexpr float size_pixels = 18.0f;
     auto fonts_dir = get_fonts_dir();
 
+    logger.debug("Loading fonts from: {}", fonts_dir.string());
+
     ImFontConfig config{};
     config.PixelSnapH = true;
 
     ImGuiIO& io = ImGui::GetIO();
-    io.Fonts->AddFontFromFileTTF((fonts_dir / "NotoSans-Regular.ttf").string().c_str(), size_pixels, &config, io.Fonts->GetGlyphRangesDefault());
 
+    auto load = [&](const char* name, const ImWchar* ranges) {
+        auto path = (fonts_dir / name).string();
+        if (!io.Fonts->AddFontFromFileTTF(path.c_str(), size_pixels, &config, ranges))
+            logger.warn("Failed to load font: {}", name);
+    };
+
+    load("NotoSans-Regular.ttf", io.Fonts->GetGlyphRangesDefault());
     config.MergeMode = true;
-    io.Fonts->AddFontFromFileTTF((fonts_dir / "NotoSansSC-Regular.ttf").string().c_str(), size_pixels, &config, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
-    io.Fonts->AddFontFromFileTTF((fonts_dir / "NotoSansTC-Regular.ttf").string().c_str(), size_pixels, &config, io.Fonts->GetGlyphRangesChineseFull());
-    io.Fonts->AddFontFromFileTTF((fonts_dir / "NotoSansJP-Regular.ttf").string().c_str(), size_pixels, &config, io.Fonts->GetGlyphRangesJapanese());
-    io.Fonts->AddFontFromFileTTF((fonts_dir / "NotoSansKR-Regular.ttf").string().c_str(), size_pixels, &config, io.Fonts->GetGlyphRangesKorean());
-    io.Fonts->AddFontFromFileTTF((fonts_dir / "NotoSans-Regular.ttf").string().c_str(), size_pixels, &config, io.Fonts->GetGlyphRangesCyrillic());
+    load("NotoSansSC-Regular.ttf", io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+    load("NotoSansTC-Regular.ttf", io.Fonts->GetGlyphRangesChineseFull());
+    load("NotoSansJP-Regular.ttf", io.Fonts->GetGlyphRangesJapanese());
+    load("NotoSansKR-Regular.ttf", io.Fonts->GetGlyphRangesKorean());
+    load("NotoSans-Regular.ttf", io.Fonts->GetGlyphRangesCyrillic());
 }

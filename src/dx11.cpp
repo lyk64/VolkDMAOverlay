@@ -1,7 +1,10 @@
 #include "include/VolkDMAOverlay/dx11.hh"
+#include <VolkLog/log.hh>
 #include <dxgi1_5.h>
 
 using namespace Microsoft::WRL;
+
+static constexpr Volk::Log::Logger logger{ "DX11" };
 
 bool DX11::init(HWND hwnd) {
 	tearing_supported = check_tearing_support();
@@ -39,9 +42,11 @@ bool DX11::init(HWND hwnd) {
 		&device,
 		nullptr,
 		&device_context))) {
+		logger.error("D3D11CreateDeviceAndSwapChain failed");
 		return false;
 	}
 
+	logger.info("Device created (tearing={})", tearing_supported);
 	return create_render_target();
 }
 
@@ -60,8 +65,10 @@ void DX11::cleanup() {
 
 bool DX11::resize(UINT width, UINT height) {
 	render_target_view.Reset();
-	if (FAILED(swap_chain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, tearing_supported ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u)))
+	if (FAILED(swap_chain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, tearing_supported ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u))) {
+		logger.error("ResizeBuffers failed ({}x{})", width, height);
 		return false;
+	}
 	return create_render_target();
 }
 
@@ -89,9 +96,13 @@ bool DX11::check_tearing_support() {
 
 bool DX11::create_render_target() {
 	ComPtr<ID3D11Texture2D> back_buffer;
-	if (FAILED(swap_chain->GetBuffer(0, IID_PPV_ARGS(&back_buffer))))
+	if (FAILED(swap_chain->GetBuffer(0, IID_PPV_ARGS(&back_buffer)))) {
+		logger.error("GetBuffer failed");
 		return false;
-	if (FAILED(device->CreateRenderTargetView(back_buffer.Get(), nullptr, render_target_view.ReleaseAndGetAddressOf())))
+	}
+	if (FAILED(device->CreateRenderTargetView(back_buffer.Get(), nullptr, render_target_view.ReleaseAndGetAddressOf()))) {
+		logger.error("CreateRenderTargetView failed");
 		return false;
+	}
 	return true;
 }

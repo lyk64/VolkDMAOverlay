@@ -1,6 +1,9 @@
 #include "include/VolkDMAOverlay/win32.hh"
 #include "include/VolkDMAOverlay/dx11.hh"
+#include <VolkLog/log.hh>
 #include <imgui_impl_win32.h>
+
+static constexpr Volk::Log::Logger logger{ "WIN32" };
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -16,6 +19,7 @@ LRESULT CALLBACK Win32::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_MOVE: {
         HMONITOR new_monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         if (current_monitor && new_monitor != current_monitor) {
+            logger.debug("Monitor changed, repositioning window");
             MONITORINFO mi = { .cbSize = sizeof(mi) };
             GetMonitorInfoW(new_monitor, &mi);
             SetWindowPos(hwnd, nullptr,
@@ -33,6 +37,7 @@ LRESULT CALLBACK Win32::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             UINT width = LOWORD(lParam);
             UINT height = HIWORD(lParam);
             if (width > 0 && height > 0) {
+                logger.debug("Resized to {}x{}", width, height);
                 self->dx11->resize(width, height);
                 if (self->on_resize) {
                     self->on_resize(width, height);
@@ -77,9 +82,13 @@ bool Win32::init(const wchar_t* title, UINT width, UINT height, DX11& dx11) {
         nullptr, nullptr, wc.hInstance, nullptr
     );
     
-    if (!hwnd) return false;
+    if (!hwnd) {
+        logger.error("CreateWindowExW failed");
+        return false;
+    }
 
     SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+    logger.info("Window created ({}x{})", width, height);
     return true;
 }
 
