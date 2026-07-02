@@ -12,6 +12,7 @@ struct Overlay {
     UINT height{};
 
     bool init(const wchar_t* title, Win32::ResizeCallback on_resize = nullptr);
+    [[nodiscard]] bool pump_messages();
     void begin_frame();
     void end_frame(bool vsync);
     void shutdown();

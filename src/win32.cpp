@@ -92,6 +92,17 @@ bool Win32::init(const wchar_t* title, UINT width, UINT height, DX11& dx11) {
     return true;
 }
 
+bool Win32::pump_messages() {
+    MSG msg{};
+    while (PeekMessageW(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
+        if (msg.message == WM_QUIT)
+            return false;
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+    return true;
+}
+
 void Win32::cleanup() {
     if (hwnd) {
         DestroyWindow(hwnd);

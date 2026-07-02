@@ -90,6 +90,10 @@ bool Overlay::init(const wchar_t* title, Win32::ResizeCallback on_resize) {
     return true;
 }
 
+bool Overlay::pump_messages() {
+    return window.pump_messages();
+}
+
 void Overlay::begin_frame() {
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
