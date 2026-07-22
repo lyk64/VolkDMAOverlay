@@ -3,6 +3,7 @@
 #include <imgui.h>
 #include <imgui_impl_win32.h>
 #include <imgui_impl_dx11.h>
+#include <algorithm>
 #include <filesystem>
 
 static constexpr Volk::Log::Logger logger{ "OVERLAY" };
@@ -114,6 +115,16 @@ void Overlay::shutdown() {
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
     initialized = false;
+}
+
+void Overlay::move_to_monitor(const std::string& device_path) {
+    if (device_path.empty())
+        return;
+
+    auto monitors = list_monitors();
+    auto it = std::ranges::find(monitors, device_path, &MonitorInfo::device_path);
+    if (it != monitors.end())
+        move_to_monitor(it->handle);
 }
 
 static std::filesystem::path get_fonts_dir() {

@@ -8,8 +8,6 @@ static constexpr Volk::Log::Logger logger{ "WIN32" };
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 LRESULT CALLBACK Win32::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    static HMONITOR current_monitor = nullptr;
-
     if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
         return true;
 
@@ -17,18 +15,15 @@ LRESULT CALLBACK Win32::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
     switch (msg) {
     case WM_MOVE: {
-        HMONITOR new_monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-        if (current_monitor && new_monitor != current_monitor) {
-            logger.debug("Monitor changed, repositioning window");
-            MONITORINFO mi = { .cbSize = sizeof(mi) };
-            GetMonitorInfoW(new_monitor, &mi);
-            SetWindowPos(hwnd, nullptr,
-                mi.rcMonitor.left, mi.rcMonitor.top,
-                mi.rcMonitor.right - mi.rcMonitor.left,
-                mi.rcMonitor.bottom - mi.rcMonitor.top,
-                SWP_NOZORDER | SWP_NOACTIVATE);
+        if (self) {
+            HMONITOR new_monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+            if (self->current_monitor && new_monitor != self->current_monitor) {
+                logger.debug("Monitor changed, repositioning window");
+                self->move_to_monitor(new_monitor);
+            } else {
+                self->current_monitor = new_monitor;
+            }
         }
-        current_monitor = new_monitor;
         return 0;
     }
 
@@ -81,15 +76,30 @@ bool Win32::init(const wchar_t* title, UINT width, UINT height, DX11& dx11) {
         0, 0, width, height,
         nullptr, nullptr, wc.hInstance, nullptr
     );
-    
+
     if (!hwnd) {
         logger.error("CreateWindowExW failed");
         return false;
     }
 
     SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+    current_monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
     logger.info("Window created ({}x{})", width, height);
     return true;
+}
+
+void Win32::move_to_monitor(HMONITOR monitor) {
+    if (monitor == current_monitor)
+        return;
+
+    MONITORINFO mi = { .cbSize = sizeof(mi) };
+    GetMonitorInfoW(monitor, &mi);
+    SetWindowPos(hwnd, nullptr,
+        mi.rcMonitor.left, mi.rcMonitor.top,
+        mi.rcMonitor.right - mi.rcMonitor.left,
+        mi.rcMonitor.bottom - mi.rcMonitor.top,
+        SWP_NOZORDER | SWP_NOACTIVATE);
+    current_monitor = monitor;
 }
 
 bool Win32::pump_messages() {
