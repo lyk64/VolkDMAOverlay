@@ -18,6 +18,9 @@
     <ClInclude Include="include\VolkDMAOverlay\monitor.hh">
       <Filter>include\VolkDMAOverlay</Filter>
     </ClInclude>
+    <ClInclude Include="include\VolkDMAOverlay\monitor_picker.hh">
+      <Filter>include\VolkDMAOverlay</Filter>
+    </ClInclude>
     <ClInclude Include="include\VolkDMAOverlay\overlay.hh">
       <Filter>include\VolkDMAOverlay</Filter>
     </ClInclude>
@@ -33,6 +36,9 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\monitor.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\monitor_picker.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\overlay.cpp">

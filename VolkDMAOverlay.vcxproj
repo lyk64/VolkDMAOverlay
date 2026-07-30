@@ -98,6 +98,7 @@
     <ClInclude Include="external\VolkLog\include\VolkLog\log.hh" />
     <ClInclude Include="include\VolkDMAOverlay\dx11.hh" />
     <ClInclude Include="include\VolkDMAOverlay\monitor.hh" />
+    <ClInclude Include="include\VolkDMAOverlay\monitor_picker.hh" />
     <ClInclude Include="include\VolkDMAOverlay\overlay.hh" />
     <ClInclude Include="include\VolkDMAOverlay\texture.hh" />
     <ClInclude Include="include\VolkDMAOverlay\win32.hh" />
@@ -105,6 +106,7 @@
   <ItemGroup>
     <ClCompile Include="src\dx11.cpp" />
     <ClCompile Include="src\monitor.cpp" />
+    <ClCompile Include="src\monitor_picker.cpp" />
     <ClCompile Include="src\overlay.cpp" />
     <ClCompile Include="src\texture.cpp" />
     <ClCompile Include="src\win32.cpp" />
