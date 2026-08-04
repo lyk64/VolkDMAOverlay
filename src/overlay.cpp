@@ -7,6 +7,8 @@
 #include <filesystem>
 
 static constexpr Volk::Log::Logger logger{ "OVERLAY" };
+static constexpr ImGuiKeyChord overlay_exit = ImGuiMod_Shift | ImGuiKey_Equal;
+static constexpr const char* hint_text = "= to hide menu | Shift + = to exit";
 
 static void apply_theme() {
     ImGuiStyle& style = ImGui::GetStyle();
@@ -99,9 +101,38 @@ void Overlay::begin_frame() {
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
+
+    if (ImGui::Shortcut(overlay_exit, ImGuiInputFlags_RouteGlobal))
+        request_close();
+}
+
+void Overlay::draw_status_bar() {
+    constexpr float margin = 10.0f;
+
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(
+        { viewport->WorkPos.x + viewport->WorkSize.x - margin, viewport->WorkPos.y + margin },
+        ImGuiCond_Always, { 1.0f, 0.0f });
+    ImGui::SetNextWindowBgAlpha(0.3f);
+    ImGui::Begin("##status", nullptr,
+        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings);
+
+    ImGui::TextUnformatted(hint_text);
+    ImGui::SameLine();
+    ImGui::Text("| FPS: %.1f |", ImGui::GetIO().Framerate);
+    ImGui::SameLine();
+
+    if (ImGui::Button("Exit"))
+        request_close();
+
+    ImGui::End();
 }
 
 void Overlay::end_frame(bool vsync) {
+    if (show_status_bar)
+        draw_status_bar();
+
     ImGui::Render();
     dx11.clear_and_set_target();
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());

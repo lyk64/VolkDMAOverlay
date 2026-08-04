@@ -11,12 +11,15 @@ struct Overlay {
     Win32 window;
     UINT width{};
     UINT height{};
+    bool show_status_bar = true;
 
     bool init(const wchar_t* title, Win32::ResizeCallback on_resize = nullptr);
     [[nodiscard]] bool pump_messages();
     void begin_frame();
     void end_frame(bool vsync);
     void shutdown();
+
+    void request_close() { PostQuitMessage(0); }
 
     [[nodiscard]] HMONITOR current_monitor() const { return window.current_monitor; }
     [[nodiscard]] std::vector<MonitorInfo> list_monitors() const { return ::list_monitors(); }
@@ -26,4 +29,5 @@ struct Overlay {
 private:
     bool initialized = false;
     void load_fonts();
+    void draw_status_bar();
 };

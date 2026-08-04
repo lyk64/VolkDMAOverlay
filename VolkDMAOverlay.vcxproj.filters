@@ -15,6 +15,9 @@
     <ClInclude Include="include\VolkDMAOverlay\dx11.hh">
       <Filter>include\VolkDMAOverlay</Filter>
     </ClInclude>
+    <ClInclude Include="include\VolkDMAOverlay\menu.hh">
+      <Filter>include\VolkDMAOverlay</Filter>
+    </ClInclude>
     <ClInclude Include="include\VolkDMAOverlay\monitor.hh">
       <Filter>include\VolkDMAOverlay</Filter>
     </ClInclude>
@@ -33,6 +36,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\dx11.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\menu.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\monitor.cpp">
