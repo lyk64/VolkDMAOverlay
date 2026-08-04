@@ -68,11 +68,19 @@ std::vector<MonitorInfo> list_monitors() {
         mi.cbSize = sizeof(mi);
         GetMonitorInfoW(monitor, &mi);
         auto target = monitor_target_info(mi.szDevice);
+
+        std::optional<DWORD> refresh_hz;
+        DEVMODEW mode{};
+        mode.dmSize = sizeof(mode);
+        if (EnumDisplaySettingsW(mi.szDevice, ENUM_CURRENT_SETTINGS, &mode))
+            refresh_hz = mode.dmDisplayFrequency;
+
         reinterpret_cast<std::vector<MonitorInfo>*>(param)->push_back({
             .handle = monitor,
             .rect = mi.rcMonitor,
             .name = narrow(target.name),
             .device_path = narrow(target.device_path),
+            .refresh_hz = refresh_hz,
         });
         return TRUE;
     }, reinterpret_cast<LPARAM>(&monitors));
@@ -82,7 +90,12 @@ std::vector<MonitorInfo> list_monitors() {
 
 std::string monitor_label(const MonitorInfo& monitor, size_t index) {
     std::string name = monitor.name.empty() ? std::format("Monitor {}", index + 1) : monitor.name;
-    return std::format("{} ({}x{})", name,
+    std::string size = std::format("{}x{}",
         monitor.rect.right - monitor.rect.left,
         monitor.rect.bottom - monitor.rect.top);
+
+    if (!monitor.refresh_hz)
+        return std::format("{} ({})", name, size);
+
+    return std::format("{} ({} @ {}Hz)", name, size, *monitor.refresh_hz);
 }

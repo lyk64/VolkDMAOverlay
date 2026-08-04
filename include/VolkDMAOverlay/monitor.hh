@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 #include <windows.h>
@@ -9,6 +10,7 @@ struct MonitorInfo {
     RECT rect;
     std::string name;
     std::string device_path;
+    std::optional<DWORD> refresh_hz;
 };
 
 [[nodiscard]] std::vector<MonitorInfo> list_monitors();
