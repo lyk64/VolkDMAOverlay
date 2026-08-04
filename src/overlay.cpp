@@ -134,9 +134,10 @@ void Overlay::end_frame(bool vsync) {
         draw_status_bar();
 
     ImGui::Render();
+    dx11.set_vsync(vsync);
     dx11.clear_and_set_target();
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-    dx11.present(vsync);
+    dx11.present();
 }
 
 void Overlay::shutdown() {
