@@ -23,7 +23,7 @@ namespace {
     }
 }
 
-bool monitor_picker(const char* label, Overlay& overlay, std::string& device_path) {
+bool monitor_picker(const char* label, Overlay& overlay) {
     const auto& monitors = cached_monitors();
     const HMONITOR current = overlay.current_monitor();
 
@@ -42,7 +42,6 @@ bool monitor_picker(const char* label, Overlay& overlay, std::string& device_pat
 
         if (ImGui::Selectable(monitor_label(monitor, i).c_str(), selected)) {
             overlay.move_to_monitor(monitor.handle);
-            device_path = monitor.device_path;
             changed = true;
         }
 

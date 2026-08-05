@@ -1,14 +1,23 @@
 #include "include/VolkDMAOverlay/overlay.hh"
+#include "include/VolkDMAOverlay/monitor.hh"
+#include "include/VolkDMAOverlay/monitor_picker.hh"
 #include <VolkLog/log.hh>
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <imgui_impl_win32.h>
 #include <imgui_impl_dx11.h>
 #include <algorithm>
 #include <filesystem>
+#include <optional>
+#include <string_view>
 
 static constexpr Volk::Log::Logger logger{ "OVERLAY" };
 static constexpr ImGuiKeyChord overlay_exit = ImGuiMod_Shift | ImGuiKey_Equal;
-static constexpr const char* hint_text = "= to hide menu | Shift + = to exit";
+static constexpr ImGuiKeyChord status_bar_toggle = ImGuiKey_Minus;
+static constexpr const char* hint_text = "= menu | - status bar | Shift + = exit";
+static constexpr const char* settings_type = "VolkDMAOverlay";
+static constexpr const char* settings_entry = "Settings";
+static constexpr const char* settings_popup = "##overlay_settings";
 
 static void apply_theme() {
     ImGuiStyle& style = ImGui::GetStyle();
@@ -59,8 +68,8 @@ static void apply_theme() {
 
 bool Overlay::init(const wchar_t* title, Win32::ResizeCallback on_resize) {
     ImGui_ImplWin32_EnableDpiAwareness();
-    width = GetSystemMetrics(SM_CXSCREEN);
-    height = GetSystemMetrics(SM_CYSCREEN);
+    const UINT width = GetSystemMetrics(SM_CXSCREEN);
+    const UINT height = GetSystemMetrics(SM_CYSCREEN);
     window.on_resize = on_resize;
 
     if (!window.init(title, width, height, dx11)) {
@@ -79,6 +88,16 @@ bool Overlay::init(const wchar_t* title, Win32::ResizeCallback on_resize) {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
+    ImGuiSettingsHandler handler{};
+    handler.TypeName = settings_type;
+    handler.TypeHash = ImHashStr(settings_type);
+    handler.ReadOpenFn = settings_read_open;
+    handler.ReadLineFn = settings_read_line;
+    handler.WriteAllFn = settings_write_all;
+    handler.UserData = this;
+    ImGui::AddSettingsHandler(&handler);
+
     load_fonts();
     ImGui_ImplWin32_Init(window.hwnd);
     ImGui_ImplDX11_Init(dx11.device.Get(), dx11.device_context.Get());
@@ -93,6 +112,52 @@ bool Overlay::init(const wchar_t* title, Win32::ResizeCallback on_resize) {
     return true;
 }
 
+static std::optional<std::string_view> setting_value(std::string_view line, std::string_view key) {
+    if (!line.starts_with(key) || line.size() <= key.size() || line[key.size()] != '=')
+        return std::nullopt;
+
+    return line.substr(key.size() + 1);
+}
+
+void* Overlay::settings_read_open(ImGuiContext*, ImGuiSettingsHandler* handler, const char* name) {
+    return std::string_view{ name } == settings_entry ? handler->UserData : nullptr;
+}
+
+void Overlay::settings_read_line(ImGuiContext*, ImGuiSettingsHandler*, void* entry, const char* line) {
+    Overlay& overlay = *static_cast<Overlay*>(entry);
+
+    if (auto value = setting_value(line, "VSync")) {
+        overlay.settings.vsync = *value == "1";
+        return;
+    }
+
+    if (auto value = setting_value(line, "Monitor"))
+        overlay.settings.monitor_path = *value;
+}
+
+void Overlay::settings_write_all(ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* buf) {
+    const Overlay& overlay = *static_cast<const Overlay*>(handler->UserData);
+
+    buf->appendf("[%s][%s]\n", handler->TypeName, settings_entry);
+    buf->appendf("VSync=%d\n", overlay.settings.vsync ? 1 : 0);
+    if (!overlay.settings.monitor_path.empty())
+        buf->appendf("Monitor=%s\n", overlay.settings.monitor_path.c_str());
+    buf->append("\n");
+}
+
+void Overlay::apply_settings() {
+    move_to_monitor(settings.monitor_path);
+    saved_settings = settings;
+}
+
+void Overlay::save_settings_if_changed() {
+    if (settings == saved_settings)
+        return;
+
+    saved_settings = settings;
+    ImGui::MarkIniSettingsDirty();
+}
+
 ScopedFrame Overlay::next_frame(std::stop_token stop) {
     return ScopedFrame{ *this, !stop.stop_requested() && window.pump_messages() };
 }
@@ -101,6 +166,14 @@ void Overlay::begin_frame() {
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
+
+    if (!settings_applied) {
+        settings_applied = true;
+        apply_settings();
+    }
+
+    if (ImGui::Shortcut(status_bar_toggle, ImGuiInputFlags_RouteGlobal))
+        show_status_bar = !show_status_bar;
 
     if (ImGui::Shortcut(overlay_exit, ImGuiInputFlags_RouteGlobal))
         request_close();
@@ -123,8 +196,24 @@ void Overlay::draw_status_bar() {
     ImGui::Text("| FPS: %.1f |", ImGui::GetIO().Framerate);
     ImGui::SameLine();
 
+    if (ImGui::Button("Settings"))
+        ImGui::OpenPopup(settings_popup);
+
+    const float dropdown_right = ImGui::GetItemRectMax().x;
+
+    ImGui::SameLine();
+
     if (ImGui::Button("Exit"))
         request_close();
+
+    const float dropdown_top = ImGui::GetWindowPos().y + ImGui::GetWindowSize().y;
+
+    ImGui::SetNextWindowPos({ dropdown_right, dropdown_top }, ImGuiCond_Always, { 1.0f, 0.0f });
+    if (ImGui::BeginPopup(settings_popup)) {
+        ImGui::Checkbox("VSync", &settings.vsync);
+        monitor_picker("Monitor", *this);
+        ImGui::EndPopup();
+    }
 
     ImGui::End();
 }
@@ -133,8 +222,10 @@ void Overlay::end_frame() {
     if (show_status_bar)
         draw_status_bar();
 
+    save_settings_if_changed();
+
     ImGui::Render();
-    dx11.set_vsync(vsync);
+    dx11.set_vsync(settings.vsync);
     dx11.clear_and_set_target();
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
     dx11.present();
@@ -149,14 +240,26 @@ void Overlay::shutdown() {
     initialized = false;
 }
 
+void Overlay::move_to_monitor(HMONITOR monitor) {
+    window.move_to_monitor(monitor);
+
+    auto monitors = list_monitors();
+    auto it = std::ranges::find(monitors, monitor, &MonitorInfo::handle);
+    if (it != monitors.end())
+        settings.monitor_path = it->device_path;
+}
+
 void Overlay::move_to_monitor(const std::string& device_path) {
     if (device_path.empty())
         return;
 
     auto monitors = list_monitors();
     auto it = std::ranges::find(monitors, device_path, &MonitorInfo::device_path);
-    if (it != monitors.end())
-        move_to_monitor(it->handle);
+    if (it == monitors.end())
+        return;
+
+    window.move_to_monitor(it->handle);
+    settings.monitor_path = it->device_path;
 }
 
 static std::filesystem::path get_fonts_dir() {
