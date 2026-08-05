@@ -53,7 +53,8 @@ private:
 
 class Menu {
 public:
-    explicit Menu(const char* title) : title{ title } {}
+    explicit Menu(const char* title, ImVec2 default_size = { 500.0f, 350.0f })
+        : title{ title }, default_size{ default_size } {}
 
     [[nodiscard]] ScopedMenu begin(ImGuiWindowFlags flags = ImGuiWindowFlags_None);
 
@@ -62,5 +63,6 @@ public:
 
 private:
     const char* title;
+    ImVec2 default_size;
     bool visible = true;
 };

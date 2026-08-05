@@ -93,8 +93,8 @@ bool Overlay::init(const wchar_t* title, Win32::ResizeCallback on_resize) {
     return true;
 }
 
-bool Overlay::pump_messages() {
-    return window.pump_messages();
+ScopedFrame Overlay::next_frame(std::stop_token stop) {
+    return ScopedFrame{ *this, !stop.stop_requested() && window.pump_messages() };
 }
 
 void Overlay::begin_frame() {
@@ -129,7 +129,7 @@ void Overlay::draw_status_bar() {
     ImGui::End();
 }
 
-void Overlay::end_frame(bool vsync) {
+void Overlay::end_frame() {
     if (show_status_bar)
         draw_status_bar();
 
