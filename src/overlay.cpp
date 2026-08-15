@@ -1,22 +1,20 @@
 #include "include/VolkDMAOverlay/overlay.hh"
 #include "include/VolkDMAOverlay/monitor.hh"
 #include "include/VolkDMAOverlay/monitor_picker.hh"
+#include "include/VolkDMAOverlay/settings.hh"
 #include <VolkLog/log.hh>
 #include <imgui.h>
-#include <imgui_internal.h>
 #include <imgui_impl_win32.h>
 #include <imgui_impl_dx11.h>
 #include <algorithm>
 #include <filesystem>
-#include <optional>
 #include <string_view>
 
 static constexpr Volk::Log::Logger logger{ "OVERLAY" };
 static constexpr ImGuiKeyChord overlay_exit = ImGuiMod_Shift | ImGuiKey_Equal;
 static constexpr ImGuiKeyChord status_bar_toggle = ImGuiKey_Minus;
 static constexpr const char* hint_text = "= menu | - status bar | Shift + = exit";
-static constexpr const char* settings_type = "VolkDMAOverlay";
-static constexpr const char* settings_entry = "Settings";
+static constexpr std::string_view settings_type = "VolkDMAOverlay";
 static constexpr const char* settings_popup = "##overlay_settings";
 
 static void apply_theme() {
@@ -89,14 +87,9 @@ bool Overlay::init(const wchar_t* title, Win32::ResizeCallback on_resize) {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-    ImGuiSettingsHandler handler{};
-    handler.TypeName = settings_type;
-    handler.TypeHash = ImHashStr(settings_type);
-    handler.ReadOpenFn = settings_read_open;
-    handler.ReadLineFn = settings_read_line;
-    handler.WriteAllFn = settings_write_all;
-    handler.UserData = this;
-    ImGui::AddSettingsHandler(&handler);
+    ini_registry.add(settings_type,
+        [this](std::string_view group, std::string_view line) { read_setting(group, line); },
+        [this](IniSettings::Writer& out) { write_settings(out); });
 
     load_fonts();
     ImGui_ImplWin32_Init(window.hwnd);
@@ -112,50 +105,12 @@ bool Overlay::init(const wchar_t* title, Win32::ResizeCallback on_resize) {
     return true;
 }
 
-static std::optional<std::string_view> setting_value(std::string_view line, std::string_view key) {
-    if (!line.starts_with(key) || line.size() <= key.size() || line[key.size()] != '=')
-        return std::nullopt;
-
-    return line.substr(key.size() + 1);
+void Overlay::read_setting(std::string_view group, std::string_view line) {
+    IniSettings::read_grouped(group, line, settings, display_group);
 }
 
-void* Overlay::settings_read_open(ImGuiContext*, ImGuiSettingsHandler* handler, const char* name) {
-    return std::string_view{ name } == settings_entry ? handler->UserData : nullptr;
-}
-
-void Overlay::settings_read_line(ImGuiContext*, ImGuiSettingsHandler*, void* entry, const char* line) {
-    Overlay& overlay = *static_cast<Overlay*>(entry);
-
-    if (auto value = setting_value(line, "VSync")) {
-        overlay.settings.vsync = *value == "1";
-        return;
-    }
-
-    if (auto value = setting_value(line, "Monitor"))
-        overlay.settings.monitor_path = *value;
-}
-
-void Overlay::settings_write_all(ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* buf) {
-    const Overlay& overlay = *static_cast<const Overlay*>(handler->UserData);
-
-    buf->appendf("[%s][%s]\n", handler->TypeName, settings_entry);
-    buf->appendf("VSync=%d\n", overlay.settings.vsync ? 1 : 0);
-    if (!overlay.settings.monitor_path.empty())
-        buf->appendf("Monitor=%s\n", overlay.settings.monitor_path.c_str());
-    buf->append("\n");
-}
-
-void Overlay::apply_settings() {
-    move_to_monitor(settings.monitor_path);
-    saved_settings = settings;
-}
-
-void Overlay::save_settings_if_changed() {
-    if (settings == saved_settings)
-        return;
-
-    saved_settings = settings;
-    ImGui::MarkIniSettingsDirty();
+void Overlay::write_settings(IniSettings::Writer& out) const {
+    IniSettings::write_grouped(out, settings, display_group);
 }
 
 ScopedFrame Overlay::next_frame(std::stop_token stop) {
@@ -169,7 +124,7 @@ void Overlay::begin_frame() {
 
     if (!settings_applied) {
         settings_applied = true;
-        apply_settings();
+        move_to_monitor(settings.display.monitor_path);
     }
 
     if (ImGui::Shortcut(status_bar_toggle, ImGuiInputFlags_RouteGlobal))
@@ -210,7 +165,7 @@ void Overlay::draw_status_bar() {
 
     ImGui::SetNextWindowPos({ dropdown_right, dropdown_top }, ImGuiCond_Always, { 1.0f, 0.0f });
     if (ImGui::BeginPopup(settings_popup)) {
-        ImGui::Checkbox("VSync", &settings.vsync);
+        ImGui::Checkbox("VSync", &settings.display.vsync);
         monitor_picker("Monitor", *this);
         ImGui::EndPopup();
     }
@@ -222,10 +177,10 @@ void Overlay::end_frame() {
     if (show_status_bar)
         draw_status_bar();
 
-    save_settings_if_changed();
+    ini_registry.poll();
 
     ImGui::Render();
-    dx11.set_vsync(settings.vsync);
+    dx11.set_vsync(settings.display.vsync);
     dx11.clear_and_set_target();
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
     dx11.present();
@@ -246,7 +201,7 @@ void Overlay::move_to_monitor(HMONITOR monitor) {
     auto monitors = list_monitors();
     auto it = std::ranges::find(monitors, monitor, &MonitorInfo::handle);
     if (it != monitors.end())
-        settings.monitor_path = it->device_path;
+        settings.display.monitor_path = it->device_path;
 }
 
 void Overlay::move_to_monitor(const std::string& device_path) {
@@ -259,7 +214,7 @@ void Overlay::move_to_monitor(const std::string& device_path) {
         return;
 
     window.move_to_monitor(it->handle);
-    settings.monitor_path = it->device_path;
+    settings.display.monitor_path = it->device_path;
 }
 
 static std::filesystem::path get_fonts_dir() {

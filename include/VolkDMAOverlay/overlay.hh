@@ -1,14 +1,13 @@
 #pragma once
 
 #include "dx11.hh"
+#include "settings.hh"
 #include "win32.hh"
 
 #include <stop_token>
 #include <string>
-
-struct ImGuiContext;
-struct ImGuiSettingsHandler;
-struct ImGuiTextBuffer;
+#include <string_view>
+#include <tuple>
 
 class ScopedFrame;
 
@@ -24,6 +23,8 @@ struct Overlay {
 
     void request_close() { PostQuitMessage(0); }
 
+    [[nodiscard]] IniSettings::Registry& ini() noexcept { return ini_registry; }
+
     [[nodiscard]] HMONITOR current_monitor() const { return window.current_monitor; }
     void move_to_monitor(HMONITOR monitor);
     void move_to_monitor(const std::string& device_path);
@@ -32,14 +33,19 @@ private:
     friend class ScopedFrame;
 
     struct Settings {
-        bool vsync = false;
-        std::string monitor_path;
-
-        bool operator==(const Settings&) const = default;
+        struct Display {
+            bool vsync = false;
+            std::string monitor_path;
+        } display;
     };
 
+    static constexpr auto display_group = IniSettings::Group{ "Display", &Settings::display, std::tuple{
+        IniSettings::Field{ "VSync", &Settings::Display::vsync },
+        IniSettings::Field{ "Monitor", &Settings::Display::monitor_path },
+    } };
+
+    IniSettings::Registry ini_registry;
     Settings settings;
-    Settings saved_settings;
 
     bool show_status_bar = true;
     bool initialized = false;
@@ -49,12 +55,9 @@ private:
     void end_frame();
     void load_fonts();
     void draw_status_bar();
-    void apply_settings();
-    void save_settings_if_changed();
 
-    static void* settings_read_open(ImGuiContext*, ImGuiSettingsHandler* handler, const char* name);
-    static void settings_read_line(ImGuiContext*, ImGuiSettingsHandler* handler, void* entry, const char* line);
-    static void settings_write_all(ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* buf);
+    void read_setting(std::string_view group, std::string_view line);
+    void write_settings(IniSettings::Writer& out) const;
 };
 
 class ScopedFrame {
