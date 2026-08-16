@@ -19,13 +19,15 @@ struct Overlay {
     DX11 dx11;
     Win32 window;
 
-    bool init(const wchar_t* title, Win32::ResizeCallback on_resize = nullptr);
+    bool init(std::string_view app_name, Win32::ResizeCallback on_resize = nullptr);
     [[nodiscard]] ScopedFrame next_frame(std::stop_token stop = {});
     void shutdown();
 
     void request_close() { PostQuitMessage(0); }
 
     [[nodiscard]] IniSettings::Registry& ini() noexcept { return ini_registry; }
+
+    void add_settings(IniSettings::ReadLine read, IniSettings::WriteAll write, IniSettings::Applied applied = {});
 
     using StatusBarPopup = std::move_only_function<void()>;
     void add_status_bar_popup(std::string_view label, StatusBarPopup draw);
@@ -58,6 +60,8 @@ private:
 
     IniSettings::Registry ini_registry;
     Settings settings;
+    std::string app_name;
+    std::string ini_path;
     std::vector<StatusItem> status_items;
 
     bool show_status_bar = true;

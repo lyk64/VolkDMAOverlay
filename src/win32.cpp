@@ -2,6 +2,7 @@
 #include "include/VolkDMAOverlay/dx11.hh"
 #include <VolkLog/log.hh>
 #include <imgui_impl_win32.h>
+#include <utility>
 
 static constexpr Volk::Log::Logger logger{ "WIN32" };
 
@@ -55,15 +56,16 @@ LRESULT CALLBACK Win32::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 
-bool Win32::init(const wchar_t* title, UINT width, UINT height, DX11& dx11) {
+bool Win32::init(std::wstring title, UINT width, UINT height, DX11& dx11) {
     this->dx11 = &dx11;
+    class_name = std::move(title);
 
     wc = {
         .cbSize = sizeof(wc),
         .lpfnWndProc = WndProc,
         .hInstance = GetModuleHandleW(nullptr),
         .hCursor = LoadCursorW(nullptr, IDC_ARROW),
-        .lpszClassName = title,
+        .lpszClassName = class_name.c_str(),
     };
 
     RegisterClassExW(&wc);
@@ -88,18 +90,31 @@ bool Win32::init(const wchar_t* title, UINT width, UINT height, DX11& dx11) {
     return true;
 }
 
+std::pair<UINT, UINT> Win32::client_size() const {
+    RECT client{};
+    if (!hwnd || !GetClientRect(hwnd, &client))
+        return { 0, 0 };
+
+    return { static_cast<UINT>(client.right - client.left), static_cast<UINT>(client.bottom - client.top) };
+}
+
 void Win32::move_to_monitor(HMONITOR monitor) {
     if (monitor == current_monitor)
         return;
 
     MONITORINFO mi = { .cbSize = sizeof(mi) };
-    GetMonitorInfoW(monitor, &mi);
+    if (!GetMonitorInfoW(monitor, &mi)) {
+        logger.warn("GetMonitorInfoW failed, staying put");
+        return;
+    }
+
+    current_monitor = monitor;
+
     SetWindowPos(hwnd, HWND_TOP,
         mi.rcMonitor.left, mi.rcMonitor.top,
         mi.rcMonitor.right - mi.rcMonitor.left,
         mi.rcMonitor.bottom - mi.rcMonitor.top,
         0);
-    current_monitor = monitor;
 }
 
 bool Win32::pump_messages() {

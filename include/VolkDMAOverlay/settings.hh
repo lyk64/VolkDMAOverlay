@@ -110,6 +110,26 @@ namespace IniSettings {
             std::vector<Level> stack;
             std::string joined;
         };
+
+        template <typename OnLine>
+        void parse_lines(std::string_view text, GroupTracker& tracker, OnLine on_line) {
+            while (!text.empty()) {
+                const auto newline = text.find('\n');
+                const auto raw = text.substr(0, newline);
+                const auto line = trim(raw);
+
+                if (newline == std::string_view::npos)
+                    text = {};
+                else
+                    text.remove_prefix(newline + 1);
+
+                if (line.empty())
+                    continue;
+
+                if (!tracker.feed(raw, line))
+                    on_line(tracker.path(), line);
+            }
+        }
     }
 
     template <detail::Scalar T>
@@ -331,22 +351,9 @@ namespace IniSettings {
     void read_document(std::string_view text, Owner& owner, const Groups&... groups) {
         detail::GroupTracker tracker;
 
-        while (!text.empty()) {
-            const auto newline = text.find('\n');
-            const auto raw = text.substr(0, newline);
-            const auto line = detail::trim(raw);
-
-            if (newline == std::string_view::npos)
-                text = {};
-            else
-                text.remove_prefix(newline + 1);
-
-            if (line.empty())
-                continue;
-
-            if (!tracker.feed(raw, line))
-                read_grouped(tracker.path(), line, owner, groups...);
-        }
+        detail::parse_lines(text, tracker, [&](std::string_view group, std::string_view line) {
+            read_grouped(group, line, owner, groups...);
+        });
     }
 
     template <typename Owner, typename... Groups>
@@ -364,7 +371,9 @@ namespace IniSettings {
         Registry& operator=(const Registry&) = delete;
 
         void add(std::string_view type_name, ReadLine read, WriteAll write, Applied applied = {});
+        void add_document(std::string_view path, ReadLine read, WriteAll write, Applied applied = {});
         void poll();
+        void flush();
 
     private:
         std::vector<std::unique_ptr<detail::Section>> sections;

@@ -1,21 +1,36 @@
 #include "include/VolkDMAOverlay/overlay.hh"
 #include "include/VolkDMAOverlay/monitor.hh"
 #include "include/VolkDMAOverlay/monitor_picker.hh"
+#include "include/VolkDMAOverlay/paths.hh"
 #include "include/VolkDMAOverlay/settings.hh"
 #include <VolkLog/log.hh>
 #include <imgui.h>
 #include <imgui_impl_win32.h>
 #include <imgui_impl_dx11.h>
 #include <algorithm>
+#include <cassert>
 #include <filesystem>
+#include <string>
 #include <string_view>
+#include <utility>
 
 static constexpr Volk::Log::Logger logger{ "OVERLAY" };
 static constexpr ImGuiKeyChord overlay_exit = ImGuiMod_Shift | ImGuiKey_Equal;
 static constexpr ImGuiKeyChord status_bar_toggle = ImGuiKey_Minus;
 static constexpr const char* hint_text = "= menu | - status bar | Shift + = exit";
-static constexpr std::string_view settings_type = "VolkDMAOverlay";
 static constexpr const char* settings_popup = "##overlay_settings";
+static constexpr const char* shared_settings_file = "overlay.ini";
+static constexpr const char* app_settings_file = "imgui.ini";
+
+static std::wstring widen(std::string_view text) {
+    if (text.empty())
+        return {};
+
+    const int size = MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), nullptr, 0);
+    std::wstring out(static_cast<size_t>(size), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), out.data(), size);
+    return out;
+}
 
 static void apply_theme() {
     ImGuiStyle& style = ImGui::GetStyle();
@@ -64,13 +79,15 @@ static void apply_theme() {
     style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.04f, 0.10f, 0.09f, 0.51f);
 }
 
-bool Overlay::init(const wchar_t* title, Win32::ResizeCallback on_resize) {
+bool Overlay::init(std::string_view name, Win32::ResizeCallback on_resize) {
+    app_name = name;
+
     ImGui_ImplWin32_EnableDpiAwareness();
     const UINT width = GetSystemMetrics(SM_CXSCREEN);
     const UINT height = GetSystemMetrics(SM_CYSCREEN);
     window.on_resize = on_resize;
 
-    if (!window.init(title, width, height, dx11)) {
+    if (!window.init(widen(app_name), width, height, dx11)) {
         logger.error("Win32 init failed");
         return false;
     }
@@ -87,7 +104,19 @@ bool Overlay::init(const wchar_t* title, Win32::ResizeCallback on_resize) {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-    ini_registry.add(settings_type,
+    const auto app_dir = Volk::Paths::app(app_name);
+
+    try {
+        std::filesystem::create_directories(app_dir);
+    }
+    catch (const std::filesystem::filesystem_error& e) {
+        logger.warn("couldn't create app folder {}: {}", app_dir.string(), e.what());
+    }
+
+    ini_path = (app_dir / app_settings_file).string();
+    io.IniFilename = ini_path.c_str();
+
+    ini_registry.add_document((Volk::Paths::shared() / shared_settings_file).string(),
         [this](std::string_view group, std::string_view line) { read_setting(group, line); },
         [this](IniSettings::DocumentWriter& out) { write_settings(out); },
         [this] { move_to_monitor(settings.display.monitor_path); });
@@ -99,11 +128,19 @@ bool Overlay::init(const wchar_t* title, Win32::ResizeCallback on_resize) {
 
     apply_theme();
 
-    if (on_resize)
-        on_resize(width, height);
+    const auto [client_width, client_height] = window.client_size();
 
-    logger.info("Initialized ({}x{})", width, height);
+    if (on_resize)
+        on_resize(client_width, client_height);
+
+    logger.info("Initialized ({}x{})", client_width, client_height);
     return true;
+}
+
+void Overlay::add_settings(IniSettings::ReadLine read, IniSettings::WriteAll write, IniSettings::Applied applied) {
+    assert(!app_name.empty() && "add_settings before init");
+
+    ini_registry.add(app_name, std::move(read), std::move(write), std::move(applied));
 }
 
 void Overlay::add_status_bar_popup(std::string_view label, StatusBarPopup draw) {
@@ -205,6 +242,7 @@ void Overlay::end_frame() {
 void Overlay::shutdown() {
     if (!initialized) return;
     logger.info("Shutting down");
+    ini_registry.flush();
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();

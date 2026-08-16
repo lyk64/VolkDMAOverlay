@@ -1,14 +1,20 @@
 #include "include/VolkDMAOverlay/settings.hh"
+#include <VolkLog/log.hh>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <algorithm>
 #include <cassert>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
+
+static constexpr Volk::Log::Logger logger{ "SETTINGS" };
 
 static_assert(IniSettings::value("Key=1", "Key") == "1");
 static_assert(IniSettings::value("Key=", "Key") == "");
@@ -21,6 +27,7 @@ static_assert(!IniSettings::detail::Composite<std::string>, "std::string must st
 
 struct IniSettings::detail::Section {
     std::string type_name;
+    std::string document;
     ReadLine read;
     WriteAll write;
     Applied applied;
@@ -49,6 +56,46 @@ namespace {
         }
 
         return parts;
+    }
+
+    [[nodiscard]] std::optional<std::string> read_file(const std::filesystem::path& path) {
+        std::ifstream in{ path, std::ios::binary };
+        if (!in)
+            return std::nullopt;
+
+        return std::string{ std::istreambuf_iterator<char>{ in }, std::istreambuf_iterator<char>{} };
+    }
+
+    void write_file(const std::filesystem::path& path, std::string_view text) {
+        try {
+            std::filesystem::create_directories(path.parent_path());
+        }
+        catch (const std::filesystem::filesystem_error& e) {
+            logger.warn("couldn't create settings folder {}: {}", path.parent_path().string(), e.what());
+            return;
+        }
+
+        std::ofstream out{ path, std::ios::binary };
+        if (!out) {
+            logger.warn("couldn't write settings: {}", path.string());
+            return;
+        }
+
+        out.write(text.data(), static_cast<std::streamsize>(text.size()));
+    }
+
+    [[nodiscard]] bool refresh_hash(Section& section, ImGuiTextBuffer& scratch) {
+        scratch.resize(0);
+
+        IniSettings::DocumentWriter out{ scratch };
+        section.write(out);
+
+        const ImGuiID hash = ImHashData(scratch.c_str(), static_cast<size_t>(scratch.size()));
+        const bool changed = section.hashed && hash != section.hash;
+
+        section.hash = hash;
+        section.hashed = true;
+        return changed;
     }
 
     void* section_read_open(ImGuiContext*, ImGuiSettingsHandler* handler, const char* name) {
@@ -203,7 +250,8 @@ IniSettings::Registry::~Registry() {
         return;
 
     for (const auto& section : sections)
-        ImGui::RemoveSettingsHandler(section->type_name.c_str());
+        if (section->document.empty())
+            ImGui::RemoveSettingsHandler(section->type_name.c_str());
 }
 
 void IniSettings::Registry::add(std::string_view type_name, ReadLine read, WriteAll write, Applied applied) {
@@ -219,7 +267,7 @@ void IniSettings::Registry::add(std::string_view type_name, ReadLine read, Write
         return;
 
     const auto& section = sections.emplace_back(std::make_unique<detail::Section>(
-        std::string{ type_name }, std::move(read), std::move(write), std::move(applied)));
+        std::string{ type_name }, std::string{}, std::move(read), std::move(write), std::move(applied)));
 
     ImGuiSettingsHandler handler{};
     handler.TypeName = section->type_name.c_str();
@@ -232,6 +280,30 @@ void IniSettings::Registry::add(std::string_view type_name, ReadLine read, Write
     ImGui::AddSettingsHandler(&handler);
 }
 
+void IniSettings::Registry::add_document(std::string_view path, ReadLine read, WriteAll write, Applied applied) {
+    assert(read && write && "settings document needs both callbacks");
+    assert(!path.empty() && "settings document needs a path");
+
+    const bool registered = std::ranges::any_of(sections,
+        [path](const auto& section) { return section->document == path; });
+
+    assert(!registered && "settings document registered twice");
+
+    if (registered)
+        return;
+
+    const auto& section = sections.emplace_back(std::make_unique<detail::Section>(
+        std::string{}, std::string{ path }, std::move(read), std::move(write), std::move(applied)));
+
+    if (const auto text = read_file(section->document))
+        detail::parse_lines(*text, section->groups, [&](std::string_view group, std::string_view line) {
+            section->read(group, line);
+        });
+
+    if (section->applied)
+        section->applied();
+}
+
 void IniSettings::Registry::poll() {
     elapsed += ImGui::GetIO().DeltaTime;
     if (elapsed < poll_interval)
@@ -240,16 +312,22 @@ void IniSettings::Registry::poll() {
     elapsed = 0.0f;
 
     for (const auto& section : sections) {
-        scratch.resize(0);
+        if (!refresh_hash(*section, scratch))
+            continue;
 
-        DocumentWriter out{ scratch };
-        section->write(out);
-
-        const ImGuiID hash = ImHashData(scratch.c_str(), static_cast<size_t>(scratch.size()));
-        if (section->hashed && hash != section->hash)
+        if (section->document.empty())
             ImGui::MarkIniSettingsDirty();
+        else
+            write_file(section->document, { scratch.c_str(), static_cast<size_t>(scratch.size()) });
+    }
+}
 
-        section->hash = hash;
-        section->hashed = true;
+void IniSettings::Registry::flush() {
+    for (const auto& section : sections) {
+        if (section->document.empty())
+            continue;
+
+        if (refresh_hash(*section, scratch))
+            write_file(section->document, { scratch.c_str(), static_cast<size_t>(scratch.size()) });
     }
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "paths.hh"
 #include "settings.hh"
 
 #include <filesystem>
@@ -11,7 +12,8 @@
 namespace IniSettings {
     class ProfileStore {
     public:
-        ProfileStore(std::filesystem::path directory, std::string extension);
+        explicit ProfileStore(std::filesystem::path directory,
+                              std::string extension = std::string{ Volk::Paths::config_extension });
 
         [[nodiscard]] std::vector<std::string> list() const;
 
