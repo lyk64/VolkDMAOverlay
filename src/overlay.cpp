@@ -89,7 +89,8 @@ bool Overlay::init(const wchar_t* title, Win32::ResizeCallback on_resize) {
 
     ini_registry.add(settings_type,
         [this](std::string_view group, std::string_view line) { read_setting(group, line); },
-        [this](IniSettings::Writer& out) { write_settings(out); });
+        [this](IniSettings::DocumentWriter& out) { write_settings(out); },
+        [this] { move_to_monitor(settings.display.monitor_path); });
 
     load_fonts();
     ImGui_ImplWin32_Init(window.hwnd);
@@ -105,11 +106,15 @@ bool Overlay::init(const wchar_t* title, Win32::ResizeCallback on_resize) {
     return true;
 }
 
+void Overlay::add_status_bar_popup(std::string_view label, StatusBarPopup draw) {
+    status_items.emplace_back(std::string{ label }, "##statusbar_" + std::string{ label }, std::move(draw));
+}
+
 void Overlay::read_setting(std::string_view group, std::string_view line) {
     IniSettings::read_grouped(group, line, settings, display_group);
 }
 
-void Overlay::write_settings(IniSettings::Writer& out) const {
+void Overlay::write_settings(IniSettings::DocumentWriter& out) const {
     IniSettings::write_grouped(out, settings, display_group);
 }
 
@@ -121,11 +126,6 @@ void Overlay::begin_frame() {
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
-
-    if (!settings_applied) {
-        settings_applied = true;
-        move_to_monitor(settings.display.monitor_path);
-    }
 
     if (ImGui::Shortcut(status_bar_toggle, ImGuiInputFlags_RouteGlobal))
         show_status_bar = !show_status_bar;
@@ -151,10 +151,18 @@ void Overlay::draw_status_bar() {
     ImGui::Text("| FPS: %.1f |", ImGui::GetIO().Framerate);
     ImGui::SameLine();
 
+    for (StatusItem& item : status_items) {
+        if (ImGui::Button(item.label.c_str()))
+            ImGui::OpenPopup(item.popup_id.c_str());
+
+        item.right = ImGui::GetItemRectMax().x;
+        ImGui::SameLine();
+    }
+
     if (ImGui::Button("Settings"))
         ImGui::OpenPopup(settings_popup);
 
-    const float dropdown_right = ImGui::GetItemRectMax().x;
+    const float settings_right = ImGui::GetItemRectMax().x;
 
     ImGui::SameLine();
 
@@ -163,7 +171,15 @@ void Overlay::draw_status_bar() {
 
     const float dropdown_top = ImGui::GetWindowPos().y + ImGui::GetWindowSize().y;
 
-    ImGui::SetNextWindowPos({ dropdown_right, dropdown_top }, ImGuiCond_Always, { 1.0f, 0.0f });
+    for (StatusItem& item : status_items) {
+        ImGui::SetNextWindowPos({ item.right, dropdown_top }, ImGuiCond_Always, { 1.0f, 0.0f });
+        if (ImGui::BeginPopup(item.popup_id.c_str())) {
+            item.draw();
+            ImGui::EndPopup();
+        }
+    }
+
+    ImGui::SetNextWindowPos({ settings_right, dropdown_top }, ImGuiCond_Always, { 1.0f, 0.0f });
     if (ImGui::BeginPopup(settings_popup)) {
         ImGui::Checkbox("VSync", &settings.display.vsync);
         monitor_picker("Monitor", *this);

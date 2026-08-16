@@ -4,10 +4,12 @@
 #include "settings.hh"
 #include "win32.hh"
 
+#include <functional>
 #include <stop_token>
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <vector>
 
 class ScopedFrame;
 
@@ -24,6 +26,9 @@ struct Overlay {
     void request_close() { PostQuitMessage(0); }
 
     [[nodiscard]] IniSettings::Registry& ini() noexcept { return ini_registry; }
+
+    using StatusBarPopup = std::move_only_function<void()>;
+    void add_status_bar_popup(std::string_view label, StatusBarPopup draw);
 
     [[nodiscard]] HMONITOR current_monitor() const { return window.current_monitor; }
     void move_to_monitor(HMONITOR monitor);
@@ -44,12 +49,19 @@ private:
         IniSettings::Field{ "Monitor", &Settings::Display::monitor_path },
     } };
 
+    struct StatusItem {
+        std::string label;
+        std::string popup_id;
+        StatusBarPopup draw;
+        float right{};
+    };
+
     IniSettings::Registry ini_registry;
     Settings settings;
+    std::vector<StatusItem> status_items;
 
     bool show_status_bar = true;
     bool initialized = false;
-    bool settings_applied = false;
 
     void begin_frame();
     void end_frame();
@@ -57,7 +69,7 @@ private:
     void draw_status_bar();
 
     void read_setting(std::string_view group, std::string_view line);
-    void write_settings(IniSettings::Writer& out) const;
+    void write_settings(IniSettings::DocumentWriter& out) const;
 };
 
 class ScopedFrame {

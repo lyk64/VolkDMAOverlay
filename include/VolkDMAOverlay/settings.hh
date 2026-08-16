@@ -13,10 +13,11 @@
 #include <system_error>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace IniSettings {
-    struct Writer {
+    struct DocumentWriter {
         ImGuiTextBuffer& buf;
 
         void group(std::string_view name) {
@@ -25,7 +26,8 @@ namespace IniSettings {
     };
 
     using ReadLine = std::move_only_function<void(std::string_view group, std::string_view line)>;
-    using WriteAll = std::move_only_function<void(Writer& out) const>;
+    using WriteAll = std::move_only_function<void(DocumentWriter& out) const>;
+    using Applied = std::move_only_function<void()>;
 
     [[nodiscard]] constexpr std::optional<std::string_view> value(std::string_view line, std::string_view key) {
         if (!line.starts_with(key) || line.size() <= key.size() || line[key.size()] != '=')
@@ -55,9 +57,34 @@ namespace IniSettings {
         template <typename T>
         concept Text = std::same_as<T, std::string>;
 
+        template <typename T>
+        concept Enum = std::is_enum_v<T>;
+
+        template <typename T>
+        concept Composite = requires(const T& stored, ImGuiTextBuffer& buf, T& target, std::string_view text) {
+            stored.write(buf);
+            { target.read(text) } -> std::convertible_to<bool>;
+        };
+
+        template <typename T>
+        concept Map = requires(T& target, const T& stored) {
+            typename T::key_type;
+            typename T::mapped_type;
+            target.clear();
+            stored.begin();
+            stored.end();
+        };
+
+        template <typename T>
+        concept Storable = Scalar<T> || FloatTuple<T> || Text<T> || Enum<T> || Composite<T> || Map<T>;
+
         [[nodiscard]] bool parse_floats(std::string_view text, std::span<float> out);
 
         void write_floats(ImGuiTextBuffer& buf, std::span<const float> values);
+
+        [[nodiscard]] std::string_view trim(std::string_view text);
+
+        [[nodiscard]] std::optional<std::string_view> group_marker(std::string_view line);
     }
 
     template <detail::Scalar T>
@@ -87,8 +114,40 @@ namespace IniSettings {
         return T{ text };
     }
 
-    template <typename Owner, typename T>
-        requires detail::Scalar<T> || detail::FloatTuple<T> || detail::Text<T>
+    template <detail::Enum T>
+    [[nodiscard]] std::optional<T> parse(std::string_view text) {
+        const auto parsed = parse<std::underlying_type_t<T>>(text);
+        return parsed ? std::optional{ static_cast<T>(*parsed) } : std::nullopt;
+    }
+
+    template <detail::Map T>
+    [[nodiscard]] std::optional<T> parse(std::string_view text) {
+        T parsed{};
+
+        while (!text.empty()) {
+            const auto comma = text.find(',');
+            const auto entry = text.substr(0, comma);
+            const auto colon = entry.find(':');
+            if (colon == std::string_view::npos)
+                return std::nullopt;
+
+            auto key = parse<typename T::key_type>(entry.substr(0, colon));
+            auto value = parse<typename T::mapped_type>(entry.substr(colon + 1));
+            if (!key || !value)
+                return std::nullopt;
+
+            parsed.emplace(std::move(*key), std::move(*value));
+
+            if (comma == std::string_view::npos)
+                break;
+
+            text.remove_prefix(comma + 1);
+        }
+
+        return parsed;
+    }
+
+    template <typename Owner, detail::Storable T>
     struct Field {
         std::string_view name;
         T Owner::* member;
@@ -114,27 +173,47 @@ namespace IniSettings {
             if (!text)
                 return false;
 
-            if (const auto parsed = parse<T>(*text))
+            if constexpr (Composite<T>)
+                (target.*field.member).read(*text);
+            else if (const auto parsed = parse<T>(*text))
                 target.*field.member = *parsed;
 
             return true;
         }
 
-        template <typename Owner, typename T>
-        void write_field(Writer& out, const Owner& target, const Field<Owner, T>& field) {
-            const auto& stored = target.*field.member;
-
-            out.buf.appendf("    %.*s=", static_cast<int>(field.name.size()), field.name.data());
-
+        template <typename T>
+        void write_value(ImGuiTextBuffer& buf, const T& stored) {
             if constexpr (FloatTuple<T>)
-                write_floats(out.buf, { &stored.x, float_count<T> });
+                write_floats(buf, { &stored.x, float_count<T> });
             else if constexpr (Text<T>)
-                out.buf.appendf("%.*s", static_cast<int>(stored.size()), stored.data());
-            else if constexpr (std::floating_point<T>)
-                out.buf.appendf("%g", static_cast<double>(stored));
-            else
-                out.buf.appendf("%lld", static_cast<long long>(stored));
+                buf.appendf("%.*s", static_cast<int>(stored.size()), stored.data());
+            else if constexpr (Composite<T>)
+                stored.write(buf);
+            else if constexpr (Enum<T>)
+                buf.appendf("%lld", static_cast<long long>(std::to_underlying(stored)));
+            else if constexpr (Map<T>) {
+                bool first = true;
 
+                for (const auto& [key, value] : stored) {
+                    if (!first)
+                        buf.append(",");
+
+                    first = false;
+                    write_value(buf, key);
+                    buf.append(":");
+                    write_value(buf, value);
+                }
+            }
+            else if constexpr (std::floating_point<T>)
+                buf.appendf("%g", static_cast<double>(stored));
+            else
+                buf.appendf("%lld", static_cast<long long>(stored));
+        }
+
+        template <typename Owner, typename T>
+        void write_field(DocumentWriter& out, const Owner& target, const Field<Owner, T>& field) {
+            out.buf.appendf("    %.*s=", static_cast<int>(field.name.size()), field.name.data());
+            write_value(out.buf, target.*field.member);
             out.buf.append("\n");
         }
 
@@ -151,7 +230,7 @@ namespace IniSettings {
         }
 
         template <typename Owner, typename Target, typename Fields>
-        void write_group(Writer& out, const Owner& owner, const Group<Owner, Target, Fields>& definition) {
+        void write_group(DocumentWriter& out, const Owner& owner, const Group<Owner, Target, Fields>& definition) {
             out.group(definition.name);
 
             const auto& target = owner.*definition.member;
@@ -161,14 +240,95 @@ namespace IniSettings {
         }
     }
 
+    class ValueReader {
+    public:
+        explicit ValueReader(std::string_view text) : remaining{ text } {}
+
+        template <typename T>
+        [[nodiscard]] bool take(T& out) {
+            if constexpr (detail::FloatTuple<T>) {
+                for (float& component : std::span<float>{ &out.x, detail::float_count<T> })
+                    if (!take(component))
+                        return false;
+
+                return true;
+            }
+            else {
+                if (remaining.empty())
+                    return false;
+
+                const auto comma = remaining.find(',');
+                const auto token = remaining.substr(0, comma);
+                remaining = comma == std::string_view::npos ? std::string_view{} : remaining.substr(comma + 1);
+
+                const auto parsed = parse<T>(token);
+                if (!parsed)
+                    return false;
+
+                out = *parsed;
+                return true;
+            }
+        }
+
+    private:
+        std::string_view remaining;
+    };
+
+    class ValueWriter {
+    public:
+        explicit ValueWriter(ImGuiTextBuffer& buf) : buf{ buf } {}
+
+        template <typename T>
+        void put(const T& value) {
+            if (!first)
+                buf.append(",");
+
+            first = false;
+            detail::write_value(buf, value);
+        }
+
+    private:
+        ImGuiTextBuffer& buf;
+        bool first = true;
+    };
+
     template <typename Owner, typename... Groups>
     bool read_grouped(std::string_view group, std::string_view line, Owner& owner, const Groups&... groups) {
         return (detail::read_group(group, line, owner, groups) || ...);
     }
 
     template <typename Owner, typename... Groups>
-    void write_grouped(Writer& out, const Owner& owner, const Groups&... groups) {
+    void write_grouped(DocumentWriter& out, const Owner& owner, const Groups&... groups) {
         (detail::write_group(out, owner, groups), ...);
+    }
+
+    template <typename Owner, typename... Groups>
+    void read_document(std::string_view text, Owner& owner, const Groups&... groups) {
+        std::string_view group;
+
+        while (!text.empty()) {
+            const auto newline = text.find('\n');
+            const auto line = detail::trim(text.substr(0, newline));
+
+            if (newline == std::string_view::npos)
+                text = {};
+            else
+                text.remove_prefix(newline + 1);
+
+            if (line.empty())
+                continue;
+
+            if (const auto marker = detail::group_marker(line))
+                group = *marker;
+            else
+                read_grouped(group, line, owner, groups...);
+        }
+    }
+
+    template <typename Owner, typename... Groups>
+    void write_document(ImGuiTextBuffer& buf, const Owner& owner, const Groups&... groups) {
+        DocumentWriter out{ buf };
+        write_grouped(out, owner, groups...);
     }
 
     class Registry {
@@ -179,7 +339,7 @@ namespace IniSettings {
         Registry(const Registry&) = delete;
         Registry& operator=(const Registry&) = delete;
 
-        void add(std::string_view type_name, ReadLine read, WriteAll write);
+        void add(std::string_view type_name, ReadLine read, WriteAll write, Applied applied = {});
         void poll();
 
     private:

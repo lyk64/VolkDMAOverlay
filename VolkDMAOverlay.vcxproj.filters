@@ -27,6 +27,12 @@
     <ClInclude Include="include\VolkDMAOverlay\overlay.hh">
       <Filter>include\VolkDMAOverlay</Filter>
     </ClInclude>
+    <ClInclude Include="include\VolkDMAOverlay\profile_picker.hh">
+      <Filter>include\VolkDMAOverlay</Filter>
+    </ClInclude>
+    <ClInclude Include="include\VolkDMAOverlay\profiles.hh">
+      <Filter>include\VolkDMAOverlay</Filter>
+    </ClInclude>
     <ClInclude Include="include\VolkDMAOverlay\settings.hh">
       <Filter>include\VolkDMAOverlay</Filter>
     </ClInclude>
@@ -51,6 +57,12 @@
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\overlay.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\profile_picker.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\profiles.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\settings.cpp">

@@ -15,10 +15,14 @@ static_assert(!IniSettings::value("KeySize=1", "Key"), "key match must not be a 
 static_assert(!IniSettings::value("Key", "Key"));
 static_assert(!IniSettings::value("Other=1", "Key"));
 
+static_assert(!IniSettings::detail::Composite<ImVec4>, "ImVec4 must stay a FloatTuple, not a Composite");
+static_assert(!IniSettings::detail::Composite<std::string>, "std::string must stay Text, not a Composite");
+
 struct IniSettings::detail::Section {
     std::string type_name;
     ReadLine read;
     WriteAll write;
+    Applied applied;
     std::string current_group;
     ImGuiID hash{};
     bool hashed{};
@@ -29,21 +33,6 @@ namespace {
 
     constexpr const char* entry_name = "Settings";
     constexpr float poll_interval = 1.0f;
-
-    [[nodiscard]] std::string_view trim(std::string_view text) {
-        const auto first = text.find_first_not_of(" \t");
-        if (first == std::string_view::npos)
-            return {};
-
-        return text.substr(first, text.find_last_not_of(" \t") - first + 1);
-    }
-
-    [[nodiscard]] std::optional<std::string_view> group_marker(std::string_view line) {
-        if (!line.ends_with(':') || line.contains('='))
-            return std::nullopt;
-
-        return line.substr(0, line.size() - 1);
-    }
 
     void* section_read_open(ImGuiContext*, ImGuiSettingsHandler* handler, const char* name) {
         if (std::string_view{ name } != entry_name)
@@ -57,11 +46,11 @@ namespace {
     void section_read_line(ImGuiContext*, ImGuiSettingsHandler*, void* entry, const char* line) {
         Section& section = *static_cast<Section*>(entry);
 
-        const auto trimmed = trim(line);
+        const auto trimmed = IniSettings::detail::trim(line);
         if (trimmed.empty())
             return;
 
-        if (const auto marker = group_marker(trimmed)) {
+        if (const auto marker = IniSettings::detail::group_marker(trimmed)) {
             section.current_group = *marker;
             return;
         }
@@ -69,16 +58,39 @@ namespace {
         section.read(section.current_group, trimmed);
     }
 
+    void section_apply_all(ImGuiContext*, ImGuiSettingsHandler* handler) {
+        Section& section = *static_cast<Section*>(handler->UserData);
+        if (section.applied)
+            section.applied();
+    }
+
     void section_write_all(ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* buf) {
         const Section& section = *static_cast<const Section*>(handler->UserData);
 
         buf->appendf("[%s][%s]\n", handler->TypeName, entry_name);
 
-        IniSettings::Writer out{ *buf };
+        IniSettings::DocumentWriter out{ *buf };
         section.write(out);
 
         buf->append("\n");
     }
+}
+
+std::string_view IniSettings::detail::trim(std::string_view text) {
+    constexpr std::string_view blank = " \t\r";
+
+    const auto first = text.find_first_not_of(blank);
+    if (first == std::string_view::npos)
+        return {};
+
+    return text.substr(first, text.find_last_not_of(blank) - first + 1);
+}
+
+std::optional<std::string_view> IniSettings::detail::group_marker(std::string_view line) {
+    if (!line.ends_with(':') || line.contains('='))
+        return std::nullopt;
+
+    return line.substr(0, line.size() - 1);
 }
 
 bool IniSettings::detail::parse_floats(std::string_view text, std::span<float> out) {
@@ -121,7 +133,7 @@ IniSettings::Registry::~Registry() {
         ImGui::RemoveSettingsHandler(section->type_name.c_str());
 }
 
-void IniSettings::Registry::add(std::string_view type_name, ReadLine read, WriteAll write) {
+void IniSettings::Registry::add(std::string_view type_name, ReadLine read, WriteAll write, Applied applied) {
     assert(ImGui::GetCurrentContext() && "no ImGui context; register after the overlay is initialised");
     assert(read && write && "settings section needs both callbacks");
 
@@ -134,7 +146,7 @@ void IniSettings::Registry::add(std::string_view type_name, ReadLine read, Write
         return;
 
     const auto& section = sections.emplace_back(std::make_unique<detail::Section>(
-        std::string{ type_name }, std::move(read), std::move(write)));
+        std::string{ type_name }, std::move(read), std::move(write), std::move(applied)));
 
     ImGuiSettingsHandler handler{};
     handler.TypeName = section->type_name.c_str();
@@ -142,6 +154,7 @@ void IniSettings::Registry::add(std::string_view type_name, ReadLine read, Write
     handler.ReadOpenFn = section_read_open;
     handler.ReadLineFn = section_read_line;
     handler.WriteAllFn = section_write_all;
+    handler.ApplyAllFn = section_apply_all;
     handler.UserData = section.get();
     ImGui::AddSettingsHandler(&handler);
 }
@@ -156,7 +169,7 @@ void IniSettings::Registry::poll() {
     for (const auto& section : sections) {
         scratch.resize(0);
 
-        Writer out{ scratch };
+        DocumentWriter out{ scratch };
         section->write(out);
 
         const ImGuiID hash = ImHashData(scratch.c_str(), static_cast<size_t>(scratch.size()));
