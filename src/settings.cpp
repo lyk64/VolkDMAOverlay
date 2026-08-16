@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 static_assert(IniSettings::value("Key=1", "Key") == "1");
 static_assert(IniSettings::value("Key=", "Key") == "");
@@ -23,7 +24,7 @@ struct IniSettings::detail::Section {
     ReadLine read;
     WriteAll write;
     Applied applied;
-    std::string current_group;
+    detail::GroupTracker groups;
     ImGuiID hash{};
     bool hashed{};
 };
@@ -34,28 +35,41 @@ namespace {
     constexpr const char* entry_name = "Settings";
     constexpr float poll_interval = 1.0f;
 
+    [[nodiscard]] std::vector<std::string_view> split_path(std::string_view path) {
+        std::vector<std::string_view> parts;
+
+        while (!path.empty()) {
+            const auto slash = path.find('/');
+            parts.push_back(path.substr(0, slash));
+
+            if (slash == std::string_view::npos)
+                break;
+
+            path.remove_prefix(slash + 1);
+        }
+
+        return parts;
+    }
+
     void* section_read_open(ImGuiContext*, ImGuiSettingsHandler* handler, const char* name) {
         if (std::string_view{ name } != entry_name)
             return nullptr;
 
         auto* section = static_cast<Section*>(handler->UserData);
-        section->current_group.clear();
+        section->groups.reset();
         return section;
     }
 
     void section_read_line(ImGuiContext*, ImGuiSettingsHandler*, void* entry, const char* line) {
         Section& section = *static_cast<Section*>(entry);
 
-        const auto trimmed = IniSettings::detail::trim(line);
+        const std::string_view raw{ line };
+        const auto trimmed = IniSettings::detail::trim(raw);
         if (trimmed.empty())
             return;
 
-        if (const auto marker = IniSettings::detail::group_marker(trimmed)) {
-            section.current_group = *marker;
-            return;
-        }
-
-        section.read(section.current_group, trimmed);
+        if (!section.groups.feed(raw, trimmed))
+            section.read(section.groups.path(), trimmed);
     }
 
     void section_apply_all(ImGuiContext*, ImGuiSettingsHandler* handler) {
@@ -84,6 +98,65 @@ std::string_view IniSettings::detail::trim(std::string_view text) {
         return {};
 
     return text.substr(first, text.find_last_not_of(blank) - first + 1);
+}
+
+void IniSettings::DocumentWriter::group(std::string_view path) {
+    const auto next = split_path(path);
+    const auto current = split_path(open);
+
+    size_t shared = 0;
+    while (shared < next.size() && shared < current.size() && next[shared] == current[shared])
+        ++shared;
+
+    depth = static_cast<int>(shared);
+
+    for (size_t i = shared; i < next.size(); ++i) {
+        indent();
+        buf.appendf("%.*s:\n", static_cast<int>(next[i].size()), next[i].data());
+        ++depth;
+    }
+
+    open = path;
+}
+
+void IniSettings::DocumentWriter::indent() {
+    for (int i = 0; i < depth; ++i)
+        buf.append("    ");
+}
+
+void IniSettings::DocumentWriter::key(std::string_view name) {
+    indent();
+    buf.appendf("%.*s=", static_cast<int>(name.size()), name.data());
+}
+
+bool IniSettings::detail::GroupTracker::feed(std::string_view raw, std::string_view trimmed) {
+    constexpr std::string_view blank = " \t";
+
+    const auto marker = group_marker(trimmed);
+    if (!marker)
+        return false;
+
+    const auto columns = raw.find_first_not_of(blank);
+
+    while (!stack.empty() && stack.back().columns >= columns)
+        stack.pop_back();
+
+    stack.push_back({ columns, std::string{ *marker } });
+
+    joined.clear();
+    for (const Level& level : stack) {
+        if (!joined.empty())
+            joined += '/';
+
+        joined += level.name;
+    }
+
+    return true;
+}
+
+void IniSettings::detail::GroupTracker::reset() {
+    stack.clear();
+    joined.clear();
 }
 
 std::optional<std::string_view> IniSettings::detail::group_marker(std::string_view line) {

@@ -17,12 +17,20 @@
 #include <vector>
 
 namespace IniSettings {
-    struct DocumentWriter {
+    class DocumentWriter {
+    public:
+        explicit DocumentWriter(ImGuiTextBuffer& buf) : buf{ buf } {}
+
+        void group(std::string_view path);
+        void key(std::string_view name);
+
         ImGuiTextBuffer& buf;
 
-        void group(std::string_view name) {
-            buf.appendf("%.*s:\n", static_cast<int>(name.size()), name.data());
-        }
+    private:
+        void indent();
+
+        std::string open;
+        int depth{};
     };
 
     using ReadLine = std::move_only_function<void(std::string_view group, std::string_view line)>;
@@ -85,6 +93,23 @@ namespace IniSettings {
         [[nodiscard]] std::string_view trim(std::string_view text);
 
         [[nodiscard]] std::optional<std::string_view> group_marker(std::string_view line);
+
+        class GroupTracker {
+        public:
+            [[nodiscard]] bool feed(std::string_view raw, std::string_view trimmed);
+            [[nodiscard]] std::string_view path() const noexcept { return joined; }
+
+            void reset();
+
+        private:
+            struct Level {
+                size_t columns;
+                std::string name;
+            };
+
+            std::vector<Level> stack;
+            std::string joined;
+        };
     }
 
     template <detail::Scalar T>
@@ -212,7 +237,7 @@ namespace IniSettings {
 
         template <typename Owner, typename T>
         void write_field(DocumentWriter& out, const Owner& target, const Field<Owner, T>& field) {
-            out.buf.appendf("    %.*s=", static_cast<int>(field.name.size()), field.name.data());
+            out.key(field.name);
             write_value(out.buf, target.*field.member);
             out.buf.append("\n");
         }
@@ -304,11 +329,12 @@ namespace IniSettings {
 
     template <typename Owner, typename... Groups>
     void read_document(std::string_view text, Owner& owner, const Groups&... groups) {
-        std::string_view group;
+        detail::GroupTracker tracker;
 
         while (!text.empty()) {
             const auto newline = text.find('\n');
-            const auto line = detail::trim(text.substr(0, newline));
+            const auto raw = text.substr(0, newline);
+            const auto line = detail::trim(raw);
 
             if (newline == std::string_view::npos)
                 text = {};
@@ -318,10 +344,8 @@ namespace IniSettings {
             if (line.empty())
                 continue;
 
-            if (const auto marker = detail::group_marker(line))
-                group = *marker;
-            else
-                read_grouped(group, line, owner, groups...);
+            if (!tracker.feed(raw, line))
+                read_grouped(tracker.path(), line, owner, groups...);
         }
     }
 
