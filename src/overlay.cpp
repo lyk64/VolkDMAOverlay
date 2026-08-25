@@ -79,6 +79,26 @@ static void apply_theme() {
     style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.04f, 0.10f, 0.09f, 0.51f);
 }
 
+const std::string& Overlay::name() const noexcept {
+    assert(initialized && "Overlay::name() requires init()");
+    return app_name;
+}
+
+std::filesystem::path Overlay::dir() const {
+    assert(initialized && "Overlay::dir() requires init()");
+    return Volk::Paths::app(app_name);
+}
+
+std::filesystem::path Overlay::configs() const {
+    assert(initialized && "Overlay::configs() requires init()");
+    return Volk::Paths::configs(app_name);
+}
+
+std::filesystem::path Overlay::assets() const {
+    assert(initialized && "Overlay::assets() requires init()");
+    return Volk::Paths::assets(app_name);
+}
+
 bool Overlay::init(std::string_view name, Win32::ResizeCallback on_resize) {
     app_name = name;
 

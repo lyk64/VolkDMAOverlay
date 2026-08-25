@@ -4,6 +4,7 @@
 #include "settings.hh"
 #include "win32.hh"
 
+#include <filesystem>
 #include <functional>
 #include <stop_token>
 #include <string>
@@ -22,6 +23,11 @@ struct Overlay {
     bool init(std::string_view app_name, Win32::ResizeCallback on_resize = nullptr);
     [[nodiscard]] ScopedFrame next_frame(std::stop_token stop = {});
     void shutdown();
+
+    [[nodiscard]] const std::string& name() const noexcept;
+    [[nodiscard]] std::filesystem::path dir() const;
+    [[nodiscard]] std::filesystem::path configs() const;
+    [[nodiscard]] std::filesystem::path assets() const;
 
     void request_close() { PostQuitMessage(0); }
 
