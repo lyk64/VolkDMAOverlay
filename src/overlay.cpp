@@ -17,6 +17,7 @@
 static constexpr Volk::Log::Logger logger{ "OVERLAY" };
 static constexpr ImGuiKeyChord overlay_exit = ImGuiMod_Shift | ImGuiKey_Equal;
 static constexpr ImGuiKeyChord status_bar_toggle = ImGuiKey_Minus;
+static constexpr const char* asset_extension = ".png";
 static constexpr const char* hint_text = "= menu | - status bar | Shift + = exit";
 static constexpr const char* settings_popup = "##overlay_settings";
 static constexpr const char* shared_settings_file = "overlay.ini";
@@ -97,6 +98,13 @@ std::filesystem::path Overlay::configs() const {
 std::filesystem::path Overlay::assets() const {
     assert(initialized && "Overlay::assets() requires init()");
     return Volk::Paths::assets(app_name);
+}
+
+TextureCache& Overlay::textures() {
+    assert(initialized && "Overlay::textures() requires init()");
+    if (!texture_cache)
+        texture_cache.emplace(dx11, assets(), std::string{ asset_extension });
+    return *texture_cache;
 }
 
 bool Overlay::init(std::string_view name, Win32::ResizeCallback on_resize) {
@@ -262,6 +270,7 @@ void Overlay::end_frame() {
 void Overlay::shutdown() {
     if (!initialized) return;
     logger.info("Shutting down");
+    texture_cache.reset();
     ini_registry.flush();
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();

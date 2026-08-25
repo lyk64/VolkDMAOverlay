@@ -2,10 +2,12 @@
 
 #include "dx11.hh"
 #include "settings.hh"
+#include "texture.hh"
 #include "win32.hh"
 
 #include <filesystem>
 #include <functional>
+#include <optional>
 #include <stop_token>
 #include <string>
 #include <string_view>
@@ -17,9 +19,6 @@ class ScopedFrame;
 struct Overlay {
     ~Overlay() { shutdown(); }
 
-    DX11 dx11;
-    Win32 window;
-
     bool init(std::string_view app_name, Win32::ResizeCallback on_resize = nullptr);
     [[nodiscard]] ScopedFrame next_frame(std::stop_token stop = {});
     void shutdown();
@@ -28,6 +27,8 @@ struct Overlay {
     [[nodiscard]] std::filesystem::path dir() const;
     [[nodiscard]] std::filesystem::path configs() const;
     [[nodiscard]] std::filesystem::path assets() const;
+
+    [[nodiscard]] TextureCache& textures();
 
     void request_close() { PostQuitMessage(0); }
 
@@ -44,6 +45,12 @@ struct Overlay {
 
 private:
     friend class ScopedFrame;
+
+    DX11 dx11;
+    Win32 window;
+
+    // declared after dx11 so texture views release before the device
+    std::optional<TextureCache> texture_cache;
 
     struct Settings {
         struct Display {
