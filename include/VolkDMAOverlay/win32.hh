@@ -30,4 +30,4 @@ struct Win32 {
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 };
 
-}
+} // namespace volk::overlay

@@ -334,4 +334,4 @@ void Overlay::load_fonts() {
     load("NotoSans-Regular.ttf", io.Fonts->GetGlyphRangesCyrillic());
 }
 
-}
+} // namespace volk::overlay

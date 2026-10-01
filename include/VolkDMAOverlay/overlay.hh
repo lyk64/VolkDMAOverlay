@@ -110,4 +110,4 @@ private:
     bool active;
 };
 
-}
+} // namespace volk::overlay

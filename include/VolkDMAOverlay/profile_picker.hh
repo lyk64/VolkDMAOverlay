@@ -18,4 +18,4 @@ namespace volk::config {
 
     void add_profile_popup(overlay::Overlay& overlay, const ProfileStore& store, std::string& active,
                            ProfileAction save, ProfileAction load);
-}
+} // namespace volk::config

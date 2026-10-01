@@ -18,4 +18,4 @@ struct MonitorInfo {
 [[nodiscard]] std::vector<MonitorInfo> list_monitors();
 [[nodiscard]] std::string monitor_label(const MonitorInfo& monitor, size_t index);
 
-}
+} // namespace volk::overlay

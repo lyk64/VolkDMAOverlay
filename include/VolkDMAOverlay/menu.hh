@@ -69,4 +69,4 @@ private:
     bool visible = true;
 };
 
-}
+} // namespace volk::overlay

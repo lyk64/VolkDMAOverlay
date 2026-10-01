@@ -32,4 +32,4 @@ private:
 	bool create_render_target();
 };
 
-}
+} // namespace volk::overlay

@@ -135,7 +135,7 @@ namespace {
 
         buf->append("\n");
     }
-}
+} // namespace
 
 std::string_view volk::config::detail::trim(std::string_view text) {
     constexpr std::string_view blank = " \t\r";

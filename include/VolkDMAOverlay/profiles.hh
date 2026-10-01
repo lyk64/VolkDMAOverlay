@@ -45,4 +45,4 @@ namespace volk::config {
         std::filesystem::path directory;
         std::string extension;
     };
-}
+} // namespace volk::config

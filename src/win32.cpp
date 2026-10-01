@@ -142,4 +142,4 @@ void Win32::cleanup() {
     }
 }
 
-}
+} // namespace volk::overlay

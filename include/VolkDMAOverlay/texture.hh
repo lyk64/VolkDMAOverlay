@@ -28,4 +28,4 @@ private:
 	std::map<std::string, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>, std::less<>> cache;
 };
 
-}
+} // namespace volk::overlay

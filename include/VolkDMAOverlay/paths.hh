@@ -11,4 +11,4 @@ namespace volk::paths {
     [[nodiscard]] std::filesystem::path app(std::string_view name);
     [[nodiscard]] std::filesystem::path configs(std::string_view name);
     [[nodiscard]] std::filesystem::path assets(std::string_view name);
-}
+} // namespace volk::paths

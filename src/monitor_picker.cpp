@@ -23,7 +23,7 @@ namespace {
 
         return monitors;
     }
-}
+} // namespace
 
 bool monitor_picker(const char* label, Overlay& overlay) {
     const auto& monitors = cached_monitors();
@@ -55,4 +55,4 @@ bool monitor_picker(const char* label, Overlay& overlay) {
     return changed;
 }
 
-}
+} // namespace volk::overlay

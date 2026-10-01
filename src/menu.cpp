@@ -14,4 +14,4 @@ ScopedMenu Menu::begin(ImGuiWindowFlags flags) {
     return ScopedMenu{ title, &visible, flags };
 }
 
-}
+} // namespace volk::overlay

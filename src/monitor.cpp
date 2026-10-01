@@ -102,4 +102,4 @@ std::string monitor_label(const MonitorInfo& monitor, size_t index) {
     return std::format("{} ({} @ {}Hz)", name, size, *monitor.refresh_hz);
 }
 
-}
+} // namespace volk::overlay

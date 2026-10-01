@@ -130,7 +130,7 @@ namespace volk::config {
                     on_line(tracker.path(), line);
             }
         }
-    }
+    } // namespace detail
 
     template <detail::Scalar T>
     [[nodiscard]] std::optional<T> parse(std::string_view text) {
@@ -283,7 +283,7 @@ namespace volk::config {
                 (write_field(out, target, field), ...);
             }, definition.fields);
         }
-    }
+    } // namespace detail
 
     class ValueReader {
     public:
@@ -380,4 +380,4 @@ namespace volk::config {
         ImGuiTextBuffer scratch;
         float elapsed{};
     };
-}
+} // namespace volk::config

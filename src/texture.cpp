@@ -80,7 +80,7 @@ namespace {
 
 		return srv;
 	}
-}
+} // namespace
 
 TextureCache::TextureCache(DX11& dx11, std::filesystem::path directory, std::string extension)
 	: dx11(dx11), directory(std::move(directory)), extension(std::move(extension)) {
@@ -116,4 +116,4 @@ ImTextureID TextureCache::load(std::string_view name) {
 	return reinterpret_cast<ImTextureID>(it->second.Get());
 }
 
-}
+} // namespace volk::overlay

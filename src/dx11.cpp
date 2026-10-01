@@ -157,4 +157,4 @@ bool DX11::create_render_target() {
 	return true;
 }
 
-}
+} // namespace volk::overlay
