@@ -16,7 +16,7 @@
 
 namespace volk::overlay {
 
-static constexpr Volk::Log::Logger logger{ "OVERLAY" };
+static constexpr volk::log::Logger logger{ "OVERLAY" };
 static constexpr ImGuiKeyChord overlay_exit = ImGuiMod_Shift | ImGuiKey_Equal;
 static constexpr ImGuiKeyChord status_bar_toggle = ImGuiKey_Minus;
 static constexpr const char* asset_extension = ".png";

@@ -5,7 +5,7 @@
 #include <iterator>
 #include <utility>
 
-static constexpr Volk::Log::Logger logger{ "PROFILES" };
+static constexpr volk::log::Logger logger{ "PROFILES" };
 
 volk::config::ProfileStore::ProfileStore(std::filesystem::path directory, std::string extension)
     : directory{ std::move(directory) }, extension{ std::move(extension) } {}

@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-static constexpr Volk::Log::Logger logger{ "SETTINGS" };
+static constexpr volk::log::Logger logger{ "SETTINGS" };
 
 static_assert(volk::config::value("Key=1", "Key") == "1");
 static_assert(volk::config::value("Key=", "Key") == "");

@@ -8,7 +8,7 @@ using namespace Microsoft::WRL;
 
 namespace volk::overlay {
 
-static constexpr Volk::Log::Logger logger{ "TEXTURE" };
+static constexpr volk::log::Logger logger{ "TEXTURE" };
 
 namespace {
 	struct Image {

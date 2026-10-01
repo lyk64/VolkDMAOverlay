@@ -6,7 +6,7 @@ using namespace Microsoft::WRL;
 
 namespace volk::overlay {
 
-static constexpr Volk::Log::Logger logger{ "DX11" };
+static constexpr volk::log::Logger logger{ "DX11" };
 
 bool DX11::init(HWND hwnd) {
 	this->hwnd = hwnd;

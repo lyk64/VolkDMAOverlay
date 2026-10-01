@@ -4,7 +4,7 @@
 #include <imgui_impl_win32.h>
 #include <utility>
 
-static constexpr Volk::Log::Logger logger{ "WIN32" };
+static constexpr volk::log::Logger logger{ "WIN32" };
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
