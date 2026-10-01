@@ -7,10 +7,10 @@
 
 static constexpr Volk::Log::Logger logger{ "PROFILES" };
 
-IniSettings::ProfileStore::ProfileStore(std::filesystem::path directory, std::string extension)
+volk::config::ProfileStore::ProfileStore(std::filesystem::path directory, std::string extension)
     : directory{ std::move(directory) }, extension{ std::move(extension) } {}
 
-std::vector<std::string> IniSettings::ProfileStore::list() const {
+std::vector<std::string> volk::config::ProfileStore::list() const {
     std::vector<std::string> names;
 
     try {
@@ -28,7 +28,7 @@ std::vector<std::string> IniSettings::ProfileStore::list() const {
     return names;
 }
 
-std::filesystem::path IniSettings::ProfileStore::path_for(std::string_view name) const {
+std::filesystem::path volk::config::ProfileStore::path_for(std::string_view name) const {
     auto file = std::filesystem::path{ name }.filename();
     if (file.stem().empty())
         return {};
@@ -37,7 +37,7 @@ std::filesystem::path IniSettings::ProfileStore::path_for(std::string_view name)
     return directory / file;
 }
 
-std::optional<std::string> IniSettings::ProfileStore::read_file(std::string_view name) const {
+std::optional<std::string> volk::config::ProfileStore::read_file(std::string_view name) const {
     const auto path = path_for(name);
     if (path.empty()) {
         logger.warn("rejected profile name: '{}'", name);
@@ -53,7 +53,7 @@ std::optional<std::string> IniSettings::ProfileStore::read_file(std::string_view
     return std::string{ std::istreambuf_iterator<char>{ in }, std::istreambuf_iterator<char>{} };
 }
 
-bool IniSettings::ProfileStore::write_file(std::string_view name, std::string_view text) const {
+bool volk::config::ProfileStore::write_file(std::string_view name, std::string_view text) const {
     const auto path = path_for(name);
     if (path.empty()) {
         logger.warn("rejected profile name: '{}'", name);

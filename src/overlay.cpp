@@ -14,6 +14,8 @@
 #include <string_view>
 #include <utility>
 
+namespace volk::overlay {
+
 static constexpr Volk::Log::Logger logger{ "OVERLAY" };
 static constexpr ImGuiKeyChord overlay_exit = ImGuiMod_Shift | ImGuiKey_Equal;
 static constexpr ImGuiKeyChord status_bar_toggle = ImGuiKey_Minus;
@@ -87,17 +89,17 @@ const std::string& Overlay::name() const noexcept {
 
 std::filesystem::path Overlay::dir() const {
     assert(initialized && "Overlay::dir() requires init()");
-    return Volk::Paths::app(app_name);
+    return volk::paths::app(app_name);
 }
 
 std::filesystem::path Overlay::configs() const {
     assert(initialized && "Overlay::configs() requires init()");
-    return Volk::Paths::configs(app_name);
+    return volk::paths::configs(app_name);
 }
 
 std::filesystem::path Overlay::assets() const {
     assert(initialized && "Overlay::assets() requires init()");
-    return Volk::Paths::assets(app_name);
+    return volk::paths::assets(app_name);
 }
 
 TextureCache& Overlay::textures() {
@@ -132,7 +134,7 @@ bool Overlay::init(std::string_view name, Win32::ResizeCallback on_resize) {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-    const auto app_dir = Volk::Paths::app(app_name);
+    const auto app_dir = volk::paths::app(app_name);
 
     try {
         std::filesystem::create_directories(app_dir);
@@ -144,9 +146,9 @@ bool Overlay::init(std::string_view name, Win32::ResizeCallback on_resize) {
     ini_path = (app_dir / app_settings_file).string();
     io.IniFilename = ini_path.c_str();
 
-    ini_registry.add_document((Volk::Paths::shared() / shared_settings_file).string(),
+    ini_registry.add_document((volk::paths::shared() / shared_settings_file).string(),
         [this](std::string_view group, std::string_view line) { read_setting(group, line); },
-        [this](IniSettings::DocumentWriter& out) { write_settings(out); },
+        [this](volk::config::DocumentWriter& out) { write_settings(out); },
         [this] { move_to_monitor(settings.display.monitor_path); });
 
     load_fonts();
@@ -165,7 +167,7 @@ bool Overlay::init(std::string_view name, Win32::ResizeCallback on_resize) {
     return true;
 }
 
-void Overlay::add_settings(IniSettings::ReadLine read, IniSettings::WriteAll write, IniSettings::Applied applied) {
+void Overlay::add_settings(volk::config::ReadLine read, volk::config::WriteAll write, volk::config::Applied applied) {
     assert(!app_name.empty() && "add_settings before init");
 
     ini_registry.add(app_name, std::move(read), std::move(write), std::move(applied));
@@ -176,11 +178,11 @@ void Overlay::add_status_bar_popup(std::string_view label, StatusBarPopup draw) 
 }
 
 void Overlay::read_setting(std::string_view group, std::string_view line) {
-    IniSettings::read_grouped(group, line, settings, display_group);
+    volk::config::read_grouped(group, line, settings, display_group);
 }
 
-void Overlay::write_settings(IniSettings::DocumentWriter& out) const {
-    IniSettings::write_grouped(out, settings, display_group);
+void Overlay::write_settings(volk::config::DocumentWriter& out) const {
+    volk::config::write_grouped(out, settings, display_group);
 }
 
 ScopedFrame Overlay::next_frame(std::stop_token stop) {
@@ -330,4 +332,6 @@ void Overlay::load_fonts() {
     load("NotoSansJP-Regular.ttf", io.Fonts->GetGlyphRangesJapanese());
     load("NotoSansKR-Regular.ttf", io.Fonts->GetGlyphRangesKorean());
     load("NotoSans-Regular.ttf", io.Fonts->GetGlyphRangesCyrillic());
+}
+
 }

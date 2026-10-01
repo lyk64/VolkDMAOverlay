@@ -11,6 +11,8 @@
 
 struct IWICImagingFactory;
 
+namespace volk::overlay {
+
 struct TextureCache {
 	TextureCache(DX11& dx11, std::filesystem::path directory, std::string extension);
 	~TextureCache();
@@ -25,3 +27,5 @@ private:
 	bool com_initialized{};
 	std::map<std::string, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>, std::less<>> cache;
 };
+
+}

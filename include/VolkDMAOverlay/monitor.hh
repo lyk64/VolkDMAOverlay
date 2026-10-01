@@ -5,6 +5,8 @@
 #include <vector>
 #include <windows.h>
 
+namespace volk::overlay {
+
 struct MonitorInfo {
     HMONITOR handle;
     RECT rect;
@@ -15,3 +17,5 @@ struct MonitorInfo {
 
 [[nodiscard]] std::vector<MonitorInfo> list_monitors();
 [[nodiscard]] std::string monitor_label(const MonitorInfo& monitor, size_t index);
+
+}

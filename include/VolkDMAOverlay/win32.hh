@@ -5,6 +5,8 @@
 #include <utility>
 #include <windows.h>
 
+namespace volk::overlay {
+
 struct DX11;
 
 struct Win32 {
@@ -27,3 +29,5 @@ struct Win32 {
 
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 };
+
+}

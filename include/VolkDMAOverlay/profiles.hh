@@ -9,11 +9,11 @@
 #include <string_view>
 #include <vector>
 
-namespace IniSettings {
+namespace volk::config {
     class ProfileStore {
     public:
         explicit ProfileStore(std::filesystem::path directory,
-                              std::string extension = std::string{ Volk::Paths::config_extension });
+                              std::string extension = std::string{ volk::paths::config_extension });
 
         [[nodiscard]] std::vector<std::string> list() const;
 

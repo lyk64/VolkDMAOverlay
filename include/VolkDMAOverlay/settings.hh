@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-namespace IniSettings {
+namespace volk::config {
     class DocumentWriter {
     public:
         explicit DocumentWriter(ImGuiTextBuffer& buf) : buf{ buf } {}

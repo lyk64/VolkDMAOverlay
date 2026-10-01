@@ -14,6 +14,8 @@
 #include <tuple>
 #include <vector>
 
+namespace volk::overlay {
+
 class ScopedFrame;
 
 struct Overlay {
@@ -32,9 +34,9 @@ struct Overlay {
 
     void request_close() { PostQuitMessage(0); }
 
-    [[nodiscard]] IniSettings::Registry& ini() noexcept { return ini_registry; }
+    [[nodiscard]] volk::config::Registry& ini() noexcept { return ini_registry; }
 
-    void add_settings(IniSettings::ReadLine read, IniSettings::WriteAll write, IniSettings::Applied applied = {});
+    void add_settings(volk::config::ReadLine read, volk::config::WriteAll write, volk::config::Applied applied = {});
 
     using StatusBarPopup = std::move_only_function<void()>;
     void add_status_bar_popup(std::string_view label, StatusBarPopup draw);
@@ -59,9 +61,9 @@ private:
         } display;
     };
 
-    static constexpr auto display_group = IniSettings::Group{ "Display", &Settings::display, std::tuple{
-        IniSettings::Field{ "VSync", &Settings::Display::vsync },
-        IniSettings::Field{ "Monitor", &Settings::Display::monitor_path },
+    static constexpr auto display_group = volk::config::Group{ "Display", &Settings::display, std::tuple{
+        volk::config::Field{ "VSync", &Settings::Display::vsync },
+        volk::config::Field{ "Monitor", &Settings::Display::monitor_path },
     } };
 
     struct StatusItem {
@@ -71,7 +73,7 @@ private:
         float right{};
     };
 
-    IniSettings::Registry ini_registry;
+    volk::config::Registry ini_registry;
     Settings settings;
     std::string app_name;
     std::string ini_path;
@@ -86,7 +88,7 @@ private:
     void draw_status_bar();
 
     void read_setting(std::string_view group, std::string_view line);
-    void write_settings(IniSettings::DocumentWriter& out) const;
+    void write_settings(volk::config::DocumentWriter& out) const;
 };
 
 class ScopedFrame {
@@ -107,3 +109,5 @@ private:
     Overlay& overlay;
     bool active;
 };
+
+}

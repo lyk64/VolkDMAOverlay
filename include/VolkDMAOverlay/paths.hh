@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <string_view>
 
-namespace Volk::Paths {
+namespace volk::paths {
     inline constexpr std::string_view root = "C:\\Volk";
     inline constexpr std::string_view config_extension = ".volk";
 

@@ -16,16 +16,16 @@
 
 static constexpr Volk::Log::Logger logger{ "SETTINGS" };
 
-static_assert(IniSettings::value("Key=1", "Key") == "1");
-static_assert(IniSettings::value("Key=", "Key") == "");
-static_assert(!IniSettings::value("KeySize=1", "Key"), "key match must not be a prefix match");
-static_assert(!IniSettings::value("Key", "Key"));
-static_assert(!IniSettings::value("Other=1", "Key"));
+static_assert(volk::config::value("Key=1", "Key") == "1");
+static_assert(volk::config::value("Key=", "Key") == "");
+static_assert(!volk::config::value("KeySize=1", "Key"), "key match must not be a prefix match");
+static_assert(!volk::config::value("Key", "Key"));
+static_assert(!volk::config::value("Other=1", "Key"));
 
-static_assert(!IniSettings::detail::Composite<ImVec4>, "ImVec4 must stay a FloatTuple, not a Composite");
-static_assert(!IniSettings::detail::Composite<std::string>, "std::string must stay Text, not a Composite");
+static_assert(!volk::config::detail::Composite<ImVec4>, "ImVec4 must stay a FloatTuple, not a Composite");
+static_assert(!volk::config::detail::Composite<std::string>, "std::string must stay Text, not a Composite");
 
-struct IniSettings::detail::Section {
+struct volk::config::detail::Section {
     std::string type_name;
     std::string document;
     ReadLine read;
@@ -37,7 +37,7 @@ struct IniSettings::detail::Section {
 };
 
 namespace {
-    using IniSettings::detail::Section;
+    using volk::config::detail::Section;
 
     constexpr const char* entry_name = "Settings";
     constexpr float poll_interval = 1.0f;
@@ -87,7 +87,7 @@ namespace {
     [[nodiscard]] bool refresh_hash(Section& section, ImGuiTextBuffer& scratch) {
         scratch.resize(0);
 
-        IniSettings::DocumentWriter out{ scratch };
+        volk::config::DocumentWriter out{ scratch };
         section.write(out);
 
         const ImGuiID hash = ImHashData(scratch.c_str(), static_cast<size_t>(scratch.size()));
@@ -111,7 +111,7 @@ namespace {
         Section& section = *static_cast<Section*>(entry);
 
         const std::string_view raw{ line };
-        const auto trimmed = IniSettings::detail::trim(raw);
+        const auto trimmed = volk::config::detail::trim(raw);
         if (trimmed.empty())
             return;
 
@@ -130,14 +130,14 @@ namespace {
 
         buf->appendf("[%s][%s]\n", handler->TypeName, entry_name);
 
-        IniSettings::DocumentWriter out{ *buf };
+        volk::config::DocumentWriter out{ *buf };
         section.write(out);
 
         buf->append("\n");
     }
 }
 
-std::string_view IniSettings::detail::trim(std::string_view text) {
+std::string_view volk::config::detail::trim(std::string_view text) {
     constexpr std::string_view blank = " \t\r";
 
     const auto first = text.find_first_not_of(blank);
@@ -147,7 +147,7 @@ std::string_view IniSettings::detail::trim(std::string_view text) {
     return text.substr(first, text.find_last_not_of(blank) - first + 1);
 }
 
-void IniSettings::DocumentWriter::group(std::string_view path) {
+void volk::config::DocumentWriter::group(std::string_view path) {
     const auto next = split_path(path);
     const auto current = split_path(open);
 
@@ -166,17 +166,17 @@ void IniSettings::DocumentWriter::group(std::string_view path) {
     open = path;
 }
 
-void IniSettings::DocumentWriter::indent() {
+void volk::config::DocumentWriter::indent() {
     for (int i = 0; i < depth; ++i)
         buf.append("    ");
 }
 
-void IniSettings::DocumentWriter::key(std::string_view name) {
+void volk::config::DocumentWriter::key(std::string_view name) {
     indent();
     buf.appendf("%.*s=", static_cast<int>(name.size()), name.data());
 }
 
-bool IniSettings::detail::GroupTracker::feed(std::string_view raw, std::string_view trimmed) {
+bool volk::config::detail::GroupTracker::feed(std::string_view raw, std::string_view trimmed) {
     constexpr std::string_view blank = " \t";
 
     const auto marker = group_marker(trimmed);
@@ -201,19 +201,19 @@ bool IniSettings::detail::GroupTracker::feed(std::string_view raw, std::string_v
     return true;
 }
 
-void IniSettings::detail::GroupTracker::reset() {
+void volk::config::detail::GroupTracker::reset() {
     stack.clear();
     joined.clear();
 }
 
-std::optional<std::string_view> IniSettings::detail::group_marker(std::string_view line) {
+std::optional<std::string_view> volk::config::detail::group_marker(std::string_view line) {
     if (!line.ends_with(':') || line.contains('='))
         return std::nullopt;
 
     return line.substr(0, line.size() - 1);
 }
 
-bool IniSettings::detail::parse_floats(std::string_view text, std::span<float> out) {
+bool volk::config::detail::parse_floats(std::string_view text, std::span<float> out) {
     for (size_t i = 0; i < out.size(); ++i) {
         const auto separator = text.find(',');
         const bool last = i + 1 == out.size();
@@ -234,7 +234,7 @@ bool IniSettings::detail::parse_floats(std::string_view text, std::span<float> o
     return true;
 }
 
-void IniSettings::detail::write_floats(ImGuiTextBuffer& buf, std::span<const float> values) {
+void volk::config::detail::write_floats(ImGuiTextBuffer& buf, std::span<const float> values) {
     for (size_t i = 0; i < values.size(); ++i) {
         if (i > 0)
             buf.append(",");
@@ -243,9 +243,9 @@ void IniSettings::detail::write_floats(ImGuiTextBuffer& buf, std::span<const flo
     }
 }
 
-IniSettings::Registry::Registry() = default;
+volk::config::Registry::Registry() = default;
 
-IniSettings::Registry::~Registry() {
+volk::config::Registry::~Registry() {
     if (!ImGui::GetCurrentContext())
         return;
 
@@ -254,7 +254,7 @@ IniSettings::Registry::~Registry() {
             ImGui::RemoveSettingsHandler(section->type_name.c_str());
 }
 
-void IniSettings::Registry::add(std::string_view type_name, ReadLine read, WriteAll write, Applied applied) {
+void volk::config::Registry::add(std::string_view type_name, ReadLine read, WriteAll write, Applied applied) {
     assert(ImGui::GetCurrentContext() && "no ImGui context; register after the overlay is initialised");
     assert(read && write && "settings section needs both callbacks");
 
@@ -280,7 +280,7 @@ void IniSettings::Registry::add(std::string_view type_name, ReadLine read, Write
     ImGui::AddSettingsHandler(&handler);
 }
 
-void IniSettings::Registry::add_document(std::string_view path, ReadLine read, WriteAll write, Applied applied) {
+void volk::config::Registry::add_document(std::string_view path, ReadLine read, WriteAll write, Applied applied) {
     assert(read && write && "settings document needs both callbacks");
     assert(!path.empty() && "settings document needs a path");
 
@@ -304,7 +304,7 @@ void IniSettings::Registry::add_document(std::string_view path, ReadLine read, W
         section->applied();
 }
 
-void IniSettings::Registry::poll() {
+void volk::config::Registry::poll() {
     elapsed += ImGui::GetIO().DeltaTime;
     if (elapsed < poll_interval)
         return;
@@ -322,7 +322,7 @@ void IniSettings::Registry::poll() {
     }
 }
 
-void IniSettings::Registry::flush() {
+void volk::config::Registry::flush() {
     for (const auto& section : sections) {
         if (section->document.empty())
             continue;

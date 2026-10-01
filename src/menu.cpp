@@ -1,5 +1,7 @@
 #include "include/VolkDMAOverlay/menu.hh"
 
+namespace volk::overlay {
+
 static constexpr ImGuiKeyChord menu_toggle = ImGuiKey_Equal;
 
 ScopedMenu Menu::begin(ImGuiWindowFlags flags) {
@@ -10,4 +12,6 @@ ScopedMenu Menu::begin(ImGuiWindowFlags flags) {
         ImGui::SetNextWindowSize(default_size, ImGuiCond_FirstUseEver);
 
     return ScopedMenu{ title, &visible, flags };
+}
+
 }

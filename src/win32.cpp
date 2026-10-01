@@ -8,6 +8,8 @@ static constexpr Volk::Log::Logger logger{ "WIN32" };
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
+namespace volk::overlay {
+
 LRESULT CALLBACK Win32::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam))
         return true;
@@ -138,4 +140,6 @@ void Win32::cleanup() {
         UnregisterClassW(wc.lpszClassName, wc.hInstance);
         wc.lpszClassName = nullptr;
     }
+}
+
 }

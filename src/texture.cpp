@@ -6,6 +6,8 @@
 
 using namespace Microsoft::WRL;
 
+namespace volk::overlay {
+
 static constexpr Volk::Log::Logger logger{ "TEXTURE" };
 
 namespace {
@@ -112,4 +114,6 @@ ImTextureID TextureCache::load(std::string_view name) {
 	}
 
 	return reinterpret_cast<ImTextureID>(it->second.Get());
+}
+
 }

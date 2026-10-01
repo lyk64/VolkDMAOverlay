@@ -4,6 +4,8 @@
 #include <dxgi1_2.h>
 #include <wrl/client.h>
 
+namespace volk::overlay {
+
 struct DX11 {
 	~DX11() { cleanup(); }
 
@@ -29,3 +31,5 @@ private:
 	bool create_swap_chain(bool allow_tearing);
 	bool create_render_target();
 };
+
+}

@@ -4,9 +4,11 @@
 #include <string>
 #include <string_view>
 
-struct Overlay;
+namespace volk::overlay {
+    struct Overlay;
+}
 
-namespace IniSettings {
+namespace volk::config {
     class ProfileStore;
 
     using ProfileAction = std::move_only_function<bool(std::string_view name) const>;
@@ -14,6 +16,6 @@ namespace IniSettings {
     bool profile_picker(const ProfileStore& store, std::string& active,
                         const ProfileAction& save, const ProfileAction& load);
 
-    void add_profile_popup(Overlay& overlay, const ProfileStore& store, std::string& active,
+    void add_profile_popup(overlay::Overlay& overlay, const ProfileStore& store, std::string& active,
                            ProfileAction save, ProfileAction load);
 }

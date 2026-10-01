@@ -1,6 +1,8 @@
 #include "include/VolkDMAOverlay/monitor.hh"
 #include <format>
 
+namespace volk::overlay {
+
 static std::string narrow(const std::wstring& wide) {
     if (wide.empty())
         return {};
@@ -98,4 +100,6 @@ std::string monitor_label(const MonitorInfo& monitor, size_t index) {
         return std::format("{} ({})", name, size);
 
     return std::format("{} ({} @ {}Hz)", name, size, *monitor.refresh_hz);
+}
+
 }

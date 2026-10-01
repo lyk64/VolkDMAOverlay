@@ -2,6 +2,8 @@
 
 #include <imgui.h>
 
+namespace volk::overlay {
+
 class ScopedTab {
 public:
     ScopedTab(const ScopedTab&) = delete;
@@ -66,3 +68,5 @@ private:
     ImVec2 default_size;
     bool visible = true;
 };
+
+}

@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-bool IniSettings::profile_picker(const ProfileStore& store, std::string& active,
+bool volk::config::profile_picker(const ProfileStore& store, std::string& active,
                                  const ProfileAction& save, const ProfileAction& load) {
     static char name_buffer[128] = "config";
     static std::vector<std::string> names;
@@ -78,7 +78,7 @@ bool IniSettings::profile_picker(const ProfileStore& store, std::string& active,
     return changed;
 }
 
-void IniSettings::add_profile_popup(Overlay& overlay, const ProfileStore& store, std::string& active,
+void volk::config::add_profile_popup(overlay::Overlay& overlay, const ProfileStore& store, std::string& active,
                                     ProfileAction save, ProfileAction load) {
     overlay.add_status_bar_popup("Configs",
         [&store, &active, save = std::move(save), load = std::move(load)] {

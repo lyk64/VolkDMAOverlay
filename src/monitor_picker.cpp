@@ -6,6 +6,8 @@
 #include <chrono>
 #include <vector>
 
+namespace volk::overlay {
+
 namespace {
     constexpr auto refresh_interval = std::chrono::seconds(1);
 
@@ -51,4 +53,6 @@ bool monitor_picker(const char* label, Overlay& overlay) {
 
     ImGui::EndCombo();
     return changed;
+}
+
 }
