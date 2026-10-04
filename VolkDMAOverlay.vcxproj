@@ -106,6 +106,7 @@
     <ClInclude Include="include\VolkDMAOverlay\profiles.hh" />
     <ClInclude Include="include\VolkDMAOverlay\settings.hh" />
     <ClInclude Include="include\VolkDMAOverlay\texture.hh" />
+    <ClInclude Include="include\VolkDMAOverlay\widgets.hh" />
     <ClInclude Include="include\VolkDMAOverlay\win32.hh" />
   </ItemGroup>
   <ItemGroup>
@@ -119,6 +120,7 @@
     <ClCompile Include="src\profiles.cpp" />
     <ClCompile Include="src\settings.cpp" />
     <ClCompile Include="src\texture.cpp" />
+    <ClCompile Include="src\widgets.cpp" />
     <ClCompile Include="src\win32.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
