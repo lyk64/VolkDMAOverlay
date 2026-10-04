@@ -21,7 +21,7 @@ ScopedSection section(const char* label, SectionOptions options) {
         ImGui::SameLine(0.0f, ImGui::GetStyle().ItemInnerSpacing.x);
     }
 
-    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding;
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_FramePadding | ImGuiTreeNodeFlags_AllowOverlap;
     if (options.default_open)
         flags |= ImGuiTreeNodeFlags_DefaultOpen;
 
