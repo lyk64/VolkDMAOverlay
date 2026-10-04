@@ -1,4 +1,5 @@
 #include "include/VolkDMAOverlay/widgets.hh"
+#include <bitset>
 #include <cfloat>
 #include <cstring>
 #include <format>
@@ -90,12 +91,22 @@ static constexpr const char* key_list_popup = "##key_list";
 static constexpr float key_list_rows = 12.0f;
 static ImGuiTextFilter key_filter;
 
+static ImGuiID active_listener = 0;
+static int bound_frame = -1;
+static bool capture_baseline = false;
+static std::bitset<256> held_before;
+
 KeyBindFrame key_bind_begin(const char* label, const char* preview, bool can_listen) {
     ImGui::PushID(label);
 
     ImGuiStorage* storage = ImGui::GetStateStorage();
-    const ImGuiID listening_id = ImGui::GetID("##listening");
-    bool listening = can_listen && storage->GetBool(listening_id);
+    const ImGuiID id = ImGui::GetID("##key_bind");
+    const ImGuiID last_frame_id = ImGui::GetID("##last_frame");
+    const int frame = ImGui::GetFrameCount();
+    if (active_listener == id && storage->GetInt(last_frame_id, -1) != frame - 1)
+        active_listener = 0;
+    storage->SetInt(last_frame_id, frame);
+    bool listening = can_listen && active_listener == id;
 
     const ImGuiStyle& style = ImGui::GetStyle();
     const float width = ImGui::CalcItemWidth();
@@ -108,19 +119,24 @@ KeyBindFrame key_bind_begin(const char* label, const char* preview, bool can_lis
     ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, { 0.0f, 0.5f });
 
     if (ImGui::Button(text.c_str(), { std::max(1.0f, width - arrow_width), 0.0f })) {
-        if (can_listen)
-            listening = !listening;
-        else
+        if (!can_listen) {
             ImGui::OpenPopup(key_list_popup);
+        }
+        else if (!listening && bound_frame < 0) {
+            active_listener = id;
+            capture_baseline = true;
+            listening = true;
+        }
     }
-    const ImVec2 popup_pos{ ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y };
+    const ImVec2 anchor_min = ImGui::GetItemRectMin();
+    const ImVec2 anchor_max{ anchor_min.x + width, ImGui::GetItemRectMax().y };
 
     if (can_listen) {
         ImGui::SameLine(0.0f, 0.0f);
-        if (ImGui::ArrowButton("##open", ImGuiDir_Down)) {
-            listening = false;
+        ImGui::BeginDisabled(listening);
+        if (ImGui::ArrowButton("##open", ImGuiDir_Down))
             ImGui::OpenPopup(key_list_popup);
-        }
+        ImGui::EndDisabled();
     }
 
     ImGui::PopStyleVar();
@@ -129,12 +145,27 @@ KeyBindFrame key_bind_begin(const char* label, const char* preview, bool can_lis
     ImGui::SameLine(0.0f, style.ItemInnerSpacing.x);
     ImGui::TextUnformatted(label, std::strstr(label, "##"));
 
-    storage->SetBool(listening_id, listening);
-    return { .listening = listening, .popup_pos = popup_pos, .popup_width = width };
+    if (bound_frame >= 0 && frame > bound_frame && !ImGui::IsMouseDown(ImGuiMouseButton_Left))
+        bound_frame = -1;
+
+    return { .listening = listening, .anchor_min = anchor_min, .anchor_max = anchor_max };
+}
+
+bool key_pressed(int code, bool held) {
+    if (code < 0 || code >= static_cast<int>(held_before.size()))
+        return false;
+    const bool pressed = held && !held_before[code] && !capture_baseline;
+    held_before[code] = held;
+    return pressed;
+}
+
+void key_poll_end() {
+    capture_baseline = false;
 }
 
 void key_bind_stop_listening() {
-    ImGui::GetStateStorage()->SetBool(ImGui::GetID("##listening"), false);
+    active_listener = 0;
+    bound_frame = ImGui::GetFrameCount();
 }
 
 void key_bind_end() {
@@ -142,8 +173,15 @@ void key_bind_end() {
 }
 
 bool key_list_begin(const KeyBindFrame& frame) {
-    ImGui::SetNextWindowPos(frame.popup_pos);
-    ImGui::SetNextWindowSizeConstraints({ frame.popup_width, 0.0f }, { FLT_MAX, FLT_MAX });
+    const ImGuiStyle& style = ImGui::GetStyle();
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    const float height = style.WindowPadding.y * 2.0f + ImGui::GetFrameHeightWithSpacing() + ImGui::GetTextLineHeightWithSpacing() * key_list_rows;
+    const float room_below = viewport->WorkPos.y + viewport->WorkSize.y - frame.anchor_max.y;
+    const float room_above = frame.anchor_min.y - viewport->WorkPos.y;
+    const bool above = room_below < height && room_above > room_below;
+
+    ImGui::SetNextWindowPos({ frame.anchor_min.x, above ? frame.anchor_min.y : frame.anchor_max.y }, ImGuiCond_Always, { 0.0f, above ? 1.0f : 0.0f });
+    ImGui::SetNextWindowSizeConstraints({ frame.anchor_max.x - frame.anchor_min.x, 0.0f }, { FLT_MAX, FLT_MAX });
     if (!ImGui::BeginPopup(key_list_popup))
         return false;
 

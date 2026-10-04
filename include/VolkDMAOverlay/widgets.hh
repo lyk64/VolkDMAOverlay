@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <ranges>
 #include <string>
 #include <string_view>
@@ -30,17 +31,25 @@ struct NameOf {
 };
 
 template <name_like T>
-[[nodiscard]] std::string label(const T& name) { return std::string{ std::string_view{ name } }; }
+[[nodiscard]] std::string label(const T& name) {
+    if constexpr (std::is_pointer_v<T>) {
+        if (!name)
+            return {};
+    }
+    return std::string{ std::string_view{ name } };
+}
 
 inline constexpr std::uint8_t escape_key = 0x1B;
 
 struct KeyBindFrame {
     bool listening;
-    ImVec2 popup_pos;
-    float popup_width;
+    ImVec2 anchor_min;
+    ImVec2 anchor_max;
 };
 
 KeyBindFrame key_bind_begin(const char* label, const char* preview, bool can_listen);
+bool key_pressed(int code, bool held);
+void key_poll_end();
 void key_bind_stop_listening();
 void key_bind_end();
 bool key_list_begin(const KeyBindFrame& frame);
@@ -104,8 +113,8 @@ bool radio(const char* label, T& value, std::type_identity_t<T> option) {
     return true;
 }
 
-template <std::ranges::random_access_range R, typename Proj = detail::NameOf>
-    requires std::ranges::sized_range<const R> &&
+template <typename R, typename Proj = detail::NameOf>
+    requires std::ranges::random_access_range<const R> && std::ranges::sized_range<const R> &&
              detail::name_like<std::remove_cvref_t<std::invoke_result_t<Proj&, std::ranges::range_reference_t<const R>>>>
 bool combo(const char* label, int& index, const R& items, Proj name = {}) {
     const int count = static_cast<int>(std::ranges::size(items));
@@ -139,8 +148,8 @@ bool combo(const char* label, int& index, const R& items, Proj name = {}) {
     return changed;
 }
 
-template <std::ranges::forward_range R, typename T, typename IsHeld = std::nullptr_t>
-    requires key_entry<std::ranges::range_value_t<R>, T> &&
+template <typename R, typename T, typename IsHeld = std::nullptr_t>
+    requires std::ranges::forward_range<const R> && key_entry<std::ranges::range_value_t<const R>, T> &&
              (std::is_null_pointer_v<IsHeld> || std::predicate<IsHeld&, T>)
 bool key_bind(const char* label, T& code, const R& keys, IsHeld is_held = nullptr) {
     constexpr bool can_listen = !std::is_null_pointer_v<IsHeld>;
@@ -153,15 +162,20 @@ bool key_bind(const char* label, T& code, const R& keys, IsHeld is_held = nullpt
 
     if constexpr (can_listen) {
         if (frame.listening) {
+            std::optional<T> pressed;
             for (const auto& key : keys) {
-                if (!std::invoke(is_held, static_cast<T>(key.code)))
-                    continue;
-                if (key.code != detail::escape_key && key.code != code) {
-                    code = key.code;
+                const T key_code = static_cast<T>(key.code);
+                if (detail::key_pressed(static_cast<int>(key.code), std::invoke(is_held, key_code)) && !pressed)
+                    pressed = key_code;
+            }
+            detail::key_poll_end();
+
+            if (pressed) {
+                if (*pressed != static_cast<T>(detail::escape_key) && *pressed != code) {
+                    code = *pressed;
                     changed = true;
                 }
                 detail::key_bind_stop_listening();
-                break;
             }
         }
     }
