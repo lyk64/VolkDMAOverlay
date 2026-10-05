@@ -97,6 +97,7 @@
   <ItemGroup>
     <ClInclude Include="external\VolkLog\include\VolkLog\log.hh" />
     <ClInclude Include="include\VolkDMAOverlay\dx11.hh" />
+    <ClInclude Include="src\fonts.hh" />
     <ClInclude Include="include\VolkDMAOverlay\menu.hh" />
     <ClInclude Include="include\VolkDMAOverlay\monitor.hh" />
     <ClInclude Include="include\VolkDMAOverlay\monitor_picker.hh" />
@@ -111,6 +112,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\dx11.cpp" />
+    <ClCompile Include="src\fonts.cpp" />
     <ClCompile Include="src\menu.cpp" />
     <ClCompile Include="src\monitor.cpp" />
     <ClCompile Include="src\monitor_picker.cpp" />

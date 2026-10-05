@@ -47,7 +47,13 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\fonts.hh">
+      <Filter>src</Filter>
+    </ClInclude>
     <ClCompile Include="src\dx11.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\fonts.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\menu.cpp">

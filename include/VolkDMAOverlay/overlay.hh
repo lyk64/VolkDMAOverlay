@@ -84,7 +84,6 @@ private:
 
     void begin_frame();
     void end_frame();
-    void load_fonts();
     void draw_status_bar();
 
     void read_setting(std::string_view group, std::string_view line);

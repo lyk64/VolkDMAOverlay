@@ -3,6 +3,7 @@
 #include "include/VolkDMAOverlay/monitor_picker.hh"
 #include "include/VolkDMAOverlay/paths.hh"
 #include "include/VolkDMAOverlay/settings.hh"
+#include "fonts.hh"
 #include <VolkLog/log.hh>
 #include <imgui.h>
 #include <imgui_impl_win32.h>
@@ -151,7 +152,7 @@ bool Overlay::init(std::string_view name, Win32::ResizeCallback on_resize) {
         [this](volk::config::DocumentWriter& out) { write_settings(out); },
         [this] { move_to_monitor(settings.display.monitor_path); });
 
-    load_fonts();
+    detail::load_fonts();
     ImGui_ImplWin32_Init(window.hwnd);
     ImGui_ImplDX11_Init(dx11.device.Get(), dx11.device_context.Get());
     initialized = true;
@@ -300,38 +301,6 @@ void Overlay::move_to_monitor(const std::string& device_path) {
 
     window.move_to_monitor(it->handle);
     settings.display.monitor_path = it->device_path;
-}
-
-static std::filesystem::path get_fonts_dir() {
-    wchar_t buf[MAX_PATH];
-    GetModuleFileNameW(nullptr, buf, MAX_PATH);
-    return std::filesystem::path(buf).parent_path() / "fonts";
-}
-
-void Overlay::load_fonts() {
-    constexpr float size_pixels = 18.0f;
-    auto fonts_dir = get_fonts_dir();
-
-    logger.debug("Loading fonts from: {}", fonts_dir.string());
-
-    ImFontConfig config{};
-    config.PixelSnapH = true;
-
-    ImGuiIO& io = ImGui::GetIO();
-
-    auto load = [&](const char* name, const ImWchar* ranges) {
-        auto path = (fonts_dir / name).string();
-        if (!io.Fonts->AddFontFromFileTTF(path.c_str(), size_pixels, &config, ranges))
-            logger.warn("Failed to load font: {}", name);
-    };
-
-    load("NotoSans-Regular.ttf", io.Fonts->GetGlyphRangesDefault());
-    config.MergeMode = true;
-    load("NotoSansSC-Regular.ttf", io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
-    load("NotoSansTC-Regular.ttf", io.Fonts->GetGlyphRangesChineseFull());
-    load("NotoSansJP-Regular.ttf", io.Fonts->GetGlyphRangesJapanese());
-    load("NotoSansKR-Regular.ttf", io.Fonts->GetGlyphRangesKorean());
-    load("NotoSans-Regular.ttf", io.Fonts->GetGlyphRangesCyrillic());
 }
 
 } // namespace volk::overlay
