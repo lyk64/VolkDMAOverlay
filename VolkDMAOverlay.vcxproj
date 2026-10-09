@@ -105,6 +105,7 @@
     <ClInclude Include="include\VolkDMAOverlay\paths.hh" />
     <ClInclude Include="include\VolkDMAOverlay\profile_picker.hh" />
     <ClInclude Include="include\VolkDMAOverlay\profiles.hh" />
+    <ClInclude Include="include\VolkDMAOverlay\screen.hh" />
     <ClInclude Include="include\VolkDMAOverlay\settings.hh" />
     <ClInclude Include="include\VolkDMAOverlay\texture.hh" />
     <ClInclude Include="include\VolkDMAOverlay\widgets.hh" />
@@ -120,6 +121,7 @@
     <ClCompile Include="src\paths.cpp" />
     <ClCompile Include="src\profile_picker.cpp" />
     <ClCompile Include="src\profiles.cpp" />
+    <ClCompile Include="src\screen.cpp" />
     <ClCompile Include="src\settings.cpp" />
     <ClCompile Include="src\texture.cpp" />
     <ClCompile Include="src\widgets.cpp" />

@@ -2,6 +2,7 @@
 #include "include/VolkDMAOverlay/monitor.hh"
 #include "include/VolkDMAOverlay/monitor_picker.hh"
 #include "include/VolkDMAOverlay/paths.hh"
+#include "include/VolkDMAOverlay/screen.hh"
 #include "include/VolkDMAOverlay/settings.hh"
 #include "fonts.hh"
 #include <VolkLog/log.hh>
@@ -194,6 +195,9 @@ void Overlay::begin_frame() {
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
+
+    const ImVec2 display_size = ImGui::GetIO().DisplaySize;
+    detail::set_screen_size(display_size.x, display_size.y);
 
     if (ImGui::Shortcut(status_bar_toggle, ImGuiInputFlags_RouteGlobal))
         show_status_bar = !show_status_bar;
