@@ -4,7 +4,7 @@
 #include <imgui_impl_win32.h>
 #include <utility>
 
-static constexpr volk::log::Logger logger{ "WIN32" };
+static constexpr volk::log::Logger logger{ "overlay.win32" };
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -21,7 +21,7 @@ LRESULT CALLBACK Win32::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         if (self) {
             HMONITOR new_monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
             if (self->current_monitor && new_monitor != self->current_monitor) {
-                logger.debug("Monitor changed, repositioning window");
+                logger.debug("Monitor changed; repositioning the window.");
                 self->move_to_monitor(new_monitor);
             } else {
                 self->current_monitor = new_monitor;
@@ -35,7 +35,7 @@ LRESULT CALLBACK Win32::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             UINT width = LOWORD(lParam);
             UINT height = HIWORD(lParam);
             if (width > 0 && height > 0) {
-                logger.debug("Resized to {}x{}", width, height);
+                logger.debug("Resized to {}x{}.", width, height);
                 self->dx11->resize(width, height);
                 if (self->on_resize) {
                     self->on_resize(width, height);
@@ -82,13 +82,13 @@ bool Win32::init(std::wstring title, UINT width, UINT height, DX11& dx11) {
     );
 
     if (!hwnd) {
-        logger.error("CreateWindowExW failed");
+        logger.error("CreateWindowExW failed.");
         return false;
     }
 
     SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
     current_monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-    logger.info("Window created ({}x{})", width, height);
+    logger.info("Window created ({}x{}).", width, height);
     return true;
 }
 
@@ -106,7 +106,7 @@ void Win32::move_to_monitor(HMONITOR monitor) {
 
     MONITORINFO mi = { .cbSize = sizeof(mi) };
     if (!GetMonitorInfoW(monitor, &mi)) {
-        logger.warn("GetMonitorInfoW failed, staying put");
+        logger.warn("GetMonitorInfoW failed; staying put.");
         return;
     }
 

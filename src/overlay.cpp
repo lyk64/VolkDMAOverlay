@@ -18,7 +18,7 @@
 
 namespace volk::overlay {
 
-static constexpr volk::log::Logger logger{ "OVERLAY" };
+static constexpr volk::log::Logger logger{ "overlay.core" };
 static constexpr ImGuiKeyChord overlay_exit = ImGuiMod_Shift | ImGuiKey_Equal;
 static constexpr ImGuiKeyChord status_bar_toggle = ImGuiKey_Minus;
 static constexpr const char* asset_extension = ".png";
@@ -120,12 +120,12 @@ bool Overlay::init(std::string_view name, Win32::ResizeCallback on_resize) {
     window.on_resize = on_resize;
 
     if (!window.init(widen(app_name), width, height, dx11)) {
-        logger.error("Win32 init failed");
+        logger.error("Win32 init failed.");
         return false;
     }
 
     if (!dx11.init(window.hwnd)) {
-        logger.error("DX11 init failed");
+        logger.error("DX11 init failed.");
         dx11.cleanup();
         window.cleanup();
         return false;
@@ -142,7 +142,7 @@ bool Overlay::init(std::string_view name, Win32::ResizeCallback on_resize) {
         std::filesystem::create_directories(app_dir);
     }
     catch (const std::filesystem::filesystem_error& e) {
-        logger.warn("couldn't create app folder {}: {}", app_dir.string(), e.what());
+        logger.warn("Failed to create the app folder {} ({}).", app_dir.string(), e.what());
     }
 
     ini_path = (app_dir / app_settings_file).string();
@@ -165,7 +165,7 @@ bool Overlay::init(std::string_view name, Win32::ResizeCallback on_resize) {
     if (on_resize)
         on_resize(client_width, client_height);
 
-    logger.info("Initialized ({}x{})", client_width, client_height);
+    logger.info("Initialized ({}x{}).", client_width, client_height);
     return true;
 }
 
@@ -276,7 +276,7 @@ void Overlay::end_frame() {
 
 void Overlay::shutdown() {
     if (!initialized) return;
-    logger.info("Shutting down");
+    logger.info("Shutting down.");
     texture_cache.reset();
     ini_registry.flush();
     ImGui_ImplDX11_Shutdown();

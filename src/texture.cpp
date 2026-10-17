@@ -8,7 +8,7 @@ using namespace Microsoft::WRL;
 
 namespace volk::overlay {
 
-static constexpr volk::log::Logger logger{ "TEXTURE" };
+static constexpr volk::log::Logger logger{ "overlay.texture" };
 
 namespace {
 	struct Image {
@@ -68,13 +68,13 @@ namespace {
 
 		ComPtr<ID3D11Texture2D> texture;
 		if (FAILED(dx11.device->CreateTexture2D(&desc, &subresource, &texture))) {
-			logger.error("CreateTexture2D failed ({}x{})", image.width, image.height);
+			logger.error("CreateTexture2D failed ({}x{}).", image.width, image.height);
 			return nullptr;
 		}
 
 		ComPtr<ID3D11ShaderResourceView> srv;
 		if (FAILED(dx11.device->CreateShaderResourceView(texture.Get(), nullptr, &srv))) {
-			logger.error("CreateShaderResourceView failed");
+			logger.error("CreateShaderResourceView failed.");
 			return nullptr;
 		}
 
@@ -87,7 +87,7 @@ TextureCache::TextureCache(DX11& dx11, std::filesystem::path directory, std::str
 	com_initialized = SUCCEEDED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED));
 
 	if (FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory))))
-		logger.error("Failed to create WIC imaging factory");
+		logger.error("Failed to create the WIC imaging factory.");
 }
 
 TextureCache::~TextureCache() {
@@ -108,7 +108,7 @@ ImTextureID TextureCache::load(std::string_view name) {
 		if (auto image = decode_image(factory.Get(), path))
 			srv = create_texture(dx11, *image);
 		else
-			logger.warn("Failed to decode: {}", path.string());
+			logger.warn("Failed to decode {}.", path.string());
 
 		it = cache.emplace(name, std::move(srv)).first;
 	}

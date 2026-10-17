@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-static constexpr volk::log::Logger logger{ "SETTINGS" };
+static constexpr volk::log::Logger logger{ "overlay.settings" };
 
 static_assert(volk::config::value("Key=1", "Key") == "1");
 static_assert(volk::config::value("Key=", "Key") == "");
@@ -71,13 +71,13 @@ namespace {
             std::filesystem::create_directories(path.parent_path());
         }
         catch (const std::filesystem::filesystem_error& e) {
-            logger.warn("couldn't create settings folder {}: {}", path.parent_path().string(), e.what());
+            logger.warn("Failed to create the settings folder {} ({}).", path.parent_path().string(), e.what());
             return;
         }
 
         std::ofstream out{ path, std::ios::binary };
         if (!out) {
-            logger.warn("couldn't write settings: {}", path.string());
+            logger.warn("Failed to write settings to {}.", path.string());
             return;
         }
 

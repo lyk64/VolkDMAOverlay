@@ -6,7 +6,7 @@ using namespace Microsoft::WRL;
 
 namespace volk::overlay {
 
-static constexpr volk::log::Logger logger{ "DX11" };
+static constexpr volk::log::Logger logger{ "overlay.dx11" };
 
 bool DX11::init(HWND hwnd) {
 	this->hwnd = hwnd;
@@ -28,11 +28,11 @@ bool DX11::init(HWND hwnd) {
 		&device,
 		nullptr,
 		&device_context))) {
-		logger.error("D3D11CreateDevice failed");
+		logger.error("D3D11CreateDevice failed.");
 		return false;
 	}
 
-	logger.info("Device created (tearing={})", tearing_supported);
+	logger.info("Device created (tearing={}).", tearing_supported);
 	return create_swap_chain(tearing_supported);
 }
 
@@ -44,7 +44,7 @@ bool DX11::create_swap_chain(bool allow_tearing) {
 	if (FAILED(device.As(&dxgi_device)) ||
 		FAILED(dxgi_device->GetAdapter(&adapter)) ||
 		FAILED(adapter->GetParent(IID_PPV_ARGS(&factory)))) {
-		logger.error("Failed to reach DXGI factory");
+		logger.error("Failed to reach the DXGI factory.");
 		return false;
 	}
 
@@ -60,7 +60,7 @@ bool DX11::create_swap_chain(bool allow_tearing) {
 	};
 
 	if (FAILED(factory->CreateSwapChainForHwnd(device.Get(), hwnd, &desc, nullptr, nullptr, &swap_chain))) {
-		logger.error("CreateSwapChainForHwnd failed (tearing={})", allow_tearing);
+		logger.error("CreateSwapChainForHwnd failed (tearing={}).", allow_tearing);
 		return false;
 	}
 
@@ -77,7 +77,7 @@ void DX11::set_vsync(bool vsync) {
 	if (allow_tearing == tearing_enabled)
 		return;
 
-	logger.debug("Rebuilding swap chain (tearing={})", allow_tearing);
+	logger.debug("Rebuilding the swap chain (tearing={}).", allow_tearing);
 
 	device_context->OMSetRenderTargets(0, nullptr, nullptr);
 	device_context->ClearState();
@@ -87,7 +87,7 @@ void DX11::set_vsync(bool vsync) {
 	swap_chain.Reset();
 
 	if (!create_swap_chain(allow_tearing))
-		logger.error("Swap chain rebuild failed, nothing will be presented");
+		logger.error("Swap chain rebuild failed; nothing will be presented.");
 }
 
 void DX11::cleanup() {
@@ -110,7 +110,7 @@ bool DX11::resize(UINT width, UINT height) {
 	render_target_view.Reset();
 	if (FAILED(swap_chain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN,
 		tearing_enabled ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u))) {
-		logger.error("ResizeBuffers failed ({}x{})", width, height);
+		logger.error("ResizeBuffers failed ({}x{}).", width, height);
 		return false;
 	}
 	return create_render_target();
@@ -147,11 +147,11 @@ bool DX11::check_tearing_support() {
 bool DX11::create_render_target() {
 	ComPtr<ID3D11Texture2D> back_buffer;
 	if (FAILED(swap_chain->GetBuffer(0, IID_PPV_ARGS(&back_buffer)))) {
-		logger.error("GetBuffer failed");
+		logger.error("GetBuffer failed.");
 		return false;
 	}
 	if (FAILED(device->CreateRenderTargetView(back_buffer.Get(), nullptr, render_target_view.ReleaseAndGetAddressOf()))) {
-		logger.error("CreateRenderTargetView failed");
+		logger.error("CreateRenderTargetView failed.");
 		return false;
 	}
 	return true;

@@ -13,7 +13,7 @@ namespace volk::overlay::detail {
 
 #include "noto_sans.inc"
 
-static constexpr volk::log::Logger logger{ "OVERLAY" };
+static constexpr volk::log::Logger logger{ "overlay.fonts" };
 
 static std::filesystem::path windows_fonts_dir() {
     PWSTR raw = nullptr;
@@ -38,7 +38,7 @@ void load_fonts() {
 
     const std::filesystem::path fonts_dir = windows_fonts_dir();
     if (fonts_dir.empty()) {
-        logger.warn("Windows fonts folder not found; CJK text will not render");
+        logger.warn("Windows fonts folder not found; CJK text will not render.");
         return;
     }
 
@@ -47,7 +47,7 @@ void load_fonts() {
         const std::filesystem::path path = fonts_dir / name;
         std::error_code error;
         if (!std::filesystem::exists(path, error)) {
-            logger.warn("Fallback font not found: {}", utf8(path));
+            logger.warn("Fallback font not found ({}).", utf8(path));
             continue;
         }
         io.Fonts->AddFontFromFileTTF(utf8(path).c_str(), size_pixels, &config);
