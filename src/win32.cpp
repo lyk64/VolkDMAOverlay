@@ -58,8 +58,9 @@ LRESULT CALLBACK Win32::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 }
 
 
-bool Win32::init(std::wstring title, UINT width, UINT height, DX11& dx11) {
+bool Win32::init(std::wstring title, UINT width, UINT height, DX11& dx11, bool transparent) {
     this->dx11 = &dx11;
+    this->transparent = transparent;
     class_name = std::move(title);
 
     wc = {
@@ -72,11 +73,15 @@ bool Win32::init(std::wstring title, UINT width, UINT height, DX11& dx11) {
 
     RegisterClassExW(&wc);
 
+    const DWORD ex_style = transparent
+        ? WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_NOREDIRECTIONBITMAP | WS_EX_LAYERED | WS_EX_TRANSPARENT
+        : WS_EX_APPWINDOW | WS_EX_TOPMOST;
+
     hwnd = CreateWindowExW(
-        WS_EX_APPWINDOW | WS_EX_TOPMOST,
+        ex_style,
         wc.lpszClassName,
         wc.lpszClassName,
-        WS_POPUP | WS_VISIBLE,
+        transparent ? WS_POPUP : WS_POPUP | WS_VISIBLE,
         0, 0, width, height,
         nullptr, nullptr, wc.hInstance, nullptr
     );
@@ -87,6 +92,12 @@ bool Win32::init(std::wstring title, UINT width, UINT height, DX11& dx11) {
     }
 
     SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+
+    if (transparent) {
+        SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
+        ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+    }
+
     current_monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
     logger.info("Window created ({}x{}).", width, height);
     return true;
@@ -117,6 +128,13 @@ void Win32::move_to_monitor(HMONITOR monitor) {
         mi.rcMonitor.right - mi.rcMonitor.left,
         mi.rcMonitor.bottom - mi.rcMonitor.top,
         0);
+}
+
+void Win32::set_click_through(bool click_through) {
+    const LONG_PTR ex_style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+    const LONG_PTR updated = click_through ? ex_style | WS_EX_TRANSPARENT : ex_style & ~WS_EX_TRANSPARENT;
+    if (updated != ex_style)
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, updated);
 }
 
 bool Win32::pump_messages() {

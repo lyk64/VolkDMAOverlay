@@ -10,6 +10,7 @@
 #include <imgui_impl_win32.h>
 #include <imgui_impl_dx11.h>
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <filesystem>
 #include <string>
@@ -26,6 +27,11 @@ static constexpr const char* hint_text = "= menu | - status bar | Shift + = exit
 static constexpr const char* settings_popup = "##overlay_settings";
 static constexpr const char* shared_settings_file = "overlay.ini";
 static constexpr const char* app_settings_file = "imgui.ini";
+static constexpr std::array<std::pair<ImGuiKey, int>, 3> shortcut_keys{ {
+    { ImGuiKey_Equal, VK_OEM_PLUS },
+    { ImGuiKey_Minus, VK_OEM_MINUS },
+    { ImGuiMod_Shift, VK_SHIFT },
+} };
 
 static std::wstring widen(std::string_view text) {
     if (text.empty())
@@ -111,7 +117,7 @@ TextureCache& Overlay::textures() {
     return *texture_cache;
 }
 
-bool Overlay::init(std::string_view name, Win32::ResizeCallback on_resize) {
+bool Overlay::init(std::string_view name, Win32::ResizeCallback on_resize, const OverlayOptions& options) {
     app_name = name;
 
     ImGui_ImplWin32_EnableDpiAwareness();
@@ -119,12 +125,12 @@ bool Overlay::init(std::string_view name, Win32::ResizeCallback on_resize) {
     const UINT height = GetSystemMetrics(SM_CYSCREEN);
     window.on_resize = on_resize;
 
-    if (!window.init(widen(app_name), width, height, dx11)) {
+    if (!window.init(widen(app_name), width, height, dx11, options.transparent)) {
         logger.error("Win32 init failed.");
         return false;
     }
 
-    if (!dx11.init(window.hwnd)) {
+    if (!dx11.init(window.hwnd, options.transparent)) {
         logger.error("DX11 init failed.");
         dx11.cleanup();
         window.cleanup();
@@ -159,6 +165,8 @@ bool Overlay::init(std::string_view name, Win32::ResizeCallback on_resize) {
     initialized = true;
 
     apply_theme();
+    if (options.transparent)
+        ImGui::GetStyle().Colors[ImGuiCol_WindowBg].w = 0.0f;
 
     const auto [client_width, client_height] = window.client_size();
 
@@ -194,7 +202,12 @@ ScopedFrame Overlay::next_frame(std::stop_token stop) {
 void Overlay::begin_frame() {
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
+    if (window.transparent)
+        feed_unfocused_input();
     ImGui::NewFrame();
+
+    if (window.transparent)
+        window.set_click_through(!ImGui::GetIO().WantCaptureMouse);
 
     const ImVec2 display_size = ImGui::GetIO().DisplaySize;
     detail::set_screen_size(display_size.x, display_size.y);
@@ -204,6 +217,20 @@ void Overlay::begin_frame() {
 
     if (ImGui::Shortcut(overlay_exit, ImGuiInputFlags_RouteGlobal))
         request_close();
+}
+
+void Overlay::feed_unfocused_input() {
+    ImGuiIO& io = ImGui::GetIO();
+
+    POINT cursor{};
+    if (GetCursorPos(&cursor) && ScreenToClient(window.hwnd, &cursor))
+        io.AddMousePosEvent(static_cast<float>(cursor.x), static_cast<float>(cursor.y));
+
+    if (GetForegroundWindow() == window.hwnd)
+        return;
+
+    for (const auto [key, virtual_key] : shortcut_keys)
+        io.AddKeyEvent(key, (GetAsyncKeyState(virtual_key) & 0x8000) != 0);
 }
 
 void Overlay::draw_status_bar() {

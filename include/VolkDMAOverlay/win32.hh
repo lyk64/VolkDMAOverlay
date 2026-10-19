@@ -16,16 +16,18 @@ struct Win32 {
     WNDCLASSEXW wc{};
     DX11* dx11{};
     HMONITOR current_monitor{};
+    bool transparent{};
     std::wstring class_name;
 
     using ResizeCallback = std::function<void(UINT width, UINT height)>;
     ResizeCallback on_resize;
 
-    bool init(std::wstring title, UINT width, UINT height, DX11& dx11);
+    bool init(std::wstring title, UINT width, UINT height, DX11& dx11, bool transparent);
     [[nodiscard]] std::pair<UINT, UINT> client_size() const;
     [[nodiscard]] bool pump_messages();
     void cleanup();
     void move_to_monitor(HMONITOR monitor);
+    void set_click_through(bool click_through);
 
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 };

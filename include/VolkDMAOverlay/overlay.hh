@@ -18,10 +18,14 @@ namespace volk::overlay {
 
 class ScopedFrame;
 
+struct OverlayOptions {
+    bool transparent = false;
+};
+
 struct Overlay {
     ~Overlay() { shutdown(); }
 
-    bool init(std::string_view app_name, Win32::ResizeCallback on_resize = nullptr);
+    bool init(std::string_view app_name, Win32::ResizeCallback on_resize = nullptr, const OverlayOptions& options = {});
     [[nodiscard]] ScopedFrame next_frame(std::stop_token stop = {});
     void shutdown();
 
@@ -84,6 +88,7 @@ private:
 
     void begin_frame();
     void end_frame();
+    void feed_unfocused_input();
     void draw_status_bar();
 
     void read_setting(std::string_view group, std::string_view line);

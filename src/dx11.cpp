@@ -2,15 +2,18 @@
 #include <VolkLog/log.hh>
 #include <dxgi1_5.h>
 
+#pragma comment(lib, "dcomp.lib")
+
 using namespace Microsoft::WRL;
 
 namespace volk::overlay {
 
 static constexpr volk::log::Logger logger{ "overlay.dx11" };
 
-bool DX11::init(HWND hwnd) {
+bool DX11::init(HWND hwnd, bool transparent) {
 	this->hwnd = hwnd;
-	tearing_supported = check_tearing_support();
+	this->transparent = transparent;
+	tearing_supported = !transparent && check_tearing_support();
 
 	UINT flags{};
 #ifdef _DEBUG
@@ -48,7 +51,12 @@ bool DX11::create_swap_chain(bool allow_tearing) {
 		return false;
 	}
 
+	RECT client{};
+	GetClientRect(hwnd, &client);
+
 	const DXGI_SWAP_CHAIN_DESC1 desc{
+		.Width = static_cast<UINT>(client.right - client.left),
+		.Height = static_cast<UINT>(client.bottom - client.top),
 		.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
 		.SampleDesc{
 			.Count = 1
@@ -56,10 +64,20 @@ bool DX11::create_swap_chain(bool allow_tearing) {
 		.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT,
 		.BufferCount = 2,
 		.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD,
+		.AlphaMode = transparent ? DXGI_ALPHA_MODE_PREMULTIPLIED : DXGI_ALPHA_MODE_UNSPECIFIED,
 		.Flags = allow_tearing ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0u
 	};
 
-	if (FAILED(factory->CreateSwapChainForHwnd(device.Get(), hwnd, &desc, nullptr, nullptr, &swap_chain))) {
+	if (transparent) {
+		if (FAILED(factory->CreateSwapChainForComposition(device.Get(), &desc, nullptr, &swap_chain))) {
+			logger.error("CreateSwapChainForComposition failed.");
+			return false;
+		}
+
+		if (!compose(dxgi_device.Get()))
+			return false;
+	}
+	else if (FAILED(factory->CreateSwapChainForHwnd(device.Get(), hwnd, &desc, nullptr, nullptr, &swap_chain))) {
 		logger.error("CreateSwapChainForHwnd failed (tearing={}).", allow_tearing);
 		return false;
 	}
@@ -68,6 +86,20 @@ bool DX11::create_swap_chain(bool allow_tearing) {
 
 	tearing_enabled = allow_tearing;
 	return create_render_target();
+}
+
+bool DX11::compose(IDXGIDevice* dxgi_device) {
+	if (FAILED(DCompositionCreateDevice(dxgi_device, IID_PPV_ARGS(&composition_device))) ||
+		FAILED(composition_device->CreateTargetForHwnd(hwnd, TRUE, &composition_target)) ||
+		FAILED(composition_device->CreateVisual(&composition_visual)) ||
+		FAILED(composition_visual->SetContent(swap_chain.Get())) ||
+		FAILED(composition_target->SetRoot(composition_visual.Get())) ||
+		FAILED(composition_device->Commit())) {
+		logger.error("Failed to compose the swap chain onto the window.");
+		return false;
+	}
+
+	return true;
 }
 
 void DX11::set_vsync(bool vsync) {
@@ -98,6 +130,9 @@ void DX11::cleanup() {
 	}
 
 	render_target_view.Reset();
+	composition_visual.Reset();
+	composition_target.Reset();
+	composition_device.Reset();
 	swap_chain.Reset();
 	device_context.Reset();
 	device.Reset();
