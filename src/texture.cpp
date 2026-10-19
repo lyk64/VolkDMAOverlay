@@ -84,6 +84,10 @@ namespace {
 
 TextureCache::TextureCache(DX11& dx11, std::filesystem::path directory, std::string extension)
 	: dx11(dx11), directory(std::move(directory)), extension(std::move(extension)) {
+	std::error_code error;
+	if (!std::filesystem::is_directory(this->directory, error))
+		logger.warn("Asset folder {} not found.", this->directory.string());
+
 	com_initialized = SUCCEEDED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED));
 
 	if (FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory))))
@@ -105,7 +109,10 @@ ImTextureID TextureCache::load(std::string_view name) {
 		path += extension;
 
 		ComPtr<ID3D11ShaderResourceView> srv;
-		if (auto image = decode_image(factory.Get(), path))
+		std::error_code error;
+		if (!std::filesystem::is_regular_file(path, error))
+			logger.warn("Texture {} not found.", path.string());
+		else if (auto image = decode_image(factory.Get(), path))
 			srv = create_texture(dx11, *image);
 		else
 			logger.warn("Failed to decode {}.", path.string());
