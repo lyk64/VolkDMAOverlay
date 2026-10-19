@@ -54,7 +54,7 @@ static void apply_theme() {
 
     style.Colors[ImGuiCol_Text] = ImVec4(0.00f, 1.00f, 1.00f, 1.00f);
     style.Colors[ImGuiCol_TextDisabled] = ImVec4(0.00f, 0.40f, 0.41f, 1.00f);
-    style.Colors[ImGuiCol_WindowBg] = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+    style.Colors[ImGuiCol_WindowBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
     style.Colors[ImGuiCol_ChildBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
     style.Colors[ImGuiCol_Border] = ImVec4(0.00f, 1.00f, 1.00f, 0.65f);
     style.Colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
@@ -165,8 +165,6 @@ bool Overlay::init(std::string_view name, Win32::ResizeCallback on_resize, const
     initialized = true;
 
     apply_theme();
-    if (options.transparent)
-        ImGui::GetStyle().Colors[ImGuiCol_WindowBg].w = 0.0f;
 
     const auto [client_width, client_height] = window.client_size();
 
